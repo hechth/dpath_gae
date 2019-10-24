@@ -1,7 +1,7 @@
 # dpath_gae
 Disentangled representation learning model for digital pathology data as a custom similarity metric for deformable image registration.
 
-[Latent Space Traversals]: data/images/latent_traversals_-5_to_5.png
+![Latent Space Traversals](data/images/latent_traversals_-5_to_5.png)
 
 ## Setup
 0.  Install [CUDA](https://developer.nvidia.com/cuda-zone) if you have a NVIDIA GPU.
