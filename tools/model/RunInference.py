@@ -40,6 +40,7 @@ def main(argv):
 
     image = None
     
+    # Check if it is image or numpy array data
     if ctfi.is_image(input_filename):
         image = ctfi.load(input_filename).numpy()
     elif cutil.is_numpy_format(input_filename):
