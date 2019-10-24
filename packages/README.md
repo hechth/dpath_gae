@@ -7,11 +7,5 @@ To import any of the packages, add the root folder of the repository using sys.p
 ```python
 import sys
 import git
-
-def get_git_root()->str:
-        git_repo = git.Repo(sys.path[0], search_parent_directories=True)
-        git_root = git_repo.git.rev_parse("--show-toplevel")
-        return git_root
-
-sys.path.append(get_git_root())
+sys.path.append(git.Repo('.', search_parent_directories=True).working_tree_dir)
 ```
