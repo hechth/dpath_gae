@@ -2,6 +2,8 @@ import glob, os
 import stat
 from sklearn.model_selection import train_test_split
 
+numpy_formats = ['npy', 'npz']
+
 def collect_files(path, pattern)->list:
     """
     Function which collects everything matching to pattern in a directory.
@@ -38,3 +40,24 @@ def publish(path):
     Function which gives every user rwx access to target at path.
     """
     os.chmod(path, stat.S_IROTH |stat.S_IWOTH | stat.S_IXOTH)
+
+def get_extension(filename)->str:
+    """
+    Function to get type extension from filename.
+
+    Returns
+    -------
+    extension: string
+    """
+    return filename.split('.')[-1]
+
+def is_numpy_format(filename):
+    """
+    Function to check if file is a numpy IO format.
+
+    Returns
+    -------
+    True if file is .npy or .npz file, False otherwise.
+    """
+    return get_extension(filename) in numpy_formats
+
