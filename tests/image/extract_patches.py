@@ -13,7 +13,7 @@ tf.enable_eager_execution()
 
 def main(argv):
     filename = os.path.join(git_root,'tests','data','images','tile_8_14.jpeg')
-    image = ctfi.load(filename, channels=3)
+    image = ctfi.load(filename, width=1024, height=1024, channels=3)
 
     patches = ctfi.extract_patches(image, 64)
     image_patch = patches[0,:,:,:]
