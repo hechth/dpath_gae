@@ -1,9 +1,10 @@
 import tensorflow as tf
 import numpy as np
 
-def load(filename, dtype=tf.float32, channels=3, name=''):
+def load(filename, dtype=tf.float32, width=None, height=None, channels=3, name=''):
     """
     Function to load a tensorflow image.
+    Supply information about height and width if known to make this known to the tensorflow graph.
     Supports BMP, GIF, JPEG, or PNG.
 
     Returns
@@ -16,7 +17,9 @@ def load(filename, dtype=tf.float32, channels=3, name=''):
     raw_image = tf.read_file(filename)
 
     # Decode image
-    image = tf.image.decode_image(raw_image, dtype=dtype, channels=channels, name=name)   
+    image = tf.image.decode_image(raw_image, dtype=dtype, channels=channels, name=name)
+    if width is not None and height is not None:
+        image.set_shape([width, height, channels])
     return image
 
 def rescale(image, new_min, new_max):
@@ -90,3 +93,24 @@ def extract_patches(
 
     return patches
     
+def subsample(image, factor, method=tf.image.ResizeMethod.BILINEAR):
+    """
+    Function shat subsamples image or batch of images by factor given by factor.
+
+    Returns:
+    subsampled: image or image batch of shape [ (batch_size,) image.width / factor, image.height / factor, image.channels]
+    """
+    image_shape = image.get_shape().as_list()
+
+    new_width = 0
+    new_height = 0
+
+    # If batch of images is passed, add factor of 1
+    if len(image_shape) == 4:
+        new_width = image_shape[1] / factor
+        new_height = image_shape[2] / factor
+    else:
+        new_width = image_shape[0] / factor
+        new_height = image_shape[1] / factor
+    
+    return tf.image.resize_images(image, [int(new_width), int(new_height)],method=method)
