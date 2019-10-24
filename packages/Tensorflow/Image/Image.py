@@ -8,7 +8,7 @@ def load(filename, dtype=tf.float32, channels=3, name=''):
 
     Returns
     -------
-    image:  Tensor with type dtype and shape [height, width, num_channels] for BMP, JPEG, and PNG images and
+    image:  Tensor with type dtype and shape [height, width, channels] for BMP, JPEG, and PNG images and
             shape [num_frames, height, width, 3] for GIF images.
 
     """
@@ -22,6 +22,7 @@ def load(filename, dtype=tf.float32, channels=3, name=''):
 def rescale(image, new_min, new_max):
     """
     Rescale intensity values of an image to a new range specified by new_min and new_max.
+    Expects images to be in an integer format for floating point ranges.
 
     Returns
     -------
