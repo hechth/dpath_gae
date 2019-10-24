@@ -5,7 +5,9 @@ All scripts can be run with *--help* to display a help message about usage.
 
 ## Visualization
 
-*   [Plot Image](visualization/PlotImage.py)
+*   [Plot Image](visualization/PlotImage.py): Plot given image using pyplot.
 
 ## Dataset
+
+*   [Collect filenames in Dataset](dataset/CollectFilenamesInDataset.py): Collects files specified by pattern and stores them as a tfrecords file.
 
