@@ -1,5 +1,13 @@
 import tensorflow as tf
 import numpy as np
+import sys
+import git
+git_root = git.Repo('.', search_parent_directories=True).working_tree_dir
+sys.path.append(git_root)
+
+from packages.Utility import get_extension
+
+supported_extensions = ['png','bmp','jpg','jpeg','gif']
 
 def load(filename, dtype=tf.float32, width=None, height=None, channels=3, name=''):
     """
@@ -114,3 +122,13 @@ def subsample(image, factor, method=tf.image.ResizeMethod.BILINEAR):
         new_height = image_shape[1] / factor
     
     return tf.image.resize_images(image, [int(new_width), int(new_height)],method=method)
+
+def is_image(filename)->bool:
+    """
+    Function which checks if given filename belongs to an image file readable by the load function.
+
+    Returns
+    -------
+    True if the file is a readable image, otherwise False.
+    """
+    return get_extension(filename) in supported_extensions
