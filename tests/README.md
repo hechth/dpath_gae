@@ -8,3 +8,4 @@ They're organized into the different modules, same as the packages.
 List of tested functions:
 *   [Extract Patches](image/extract_patches.py)
 *   [Subsample Image](image/subsample.py)
+*   [Valid image file type](image/is_image.py)
