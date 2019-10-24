@@ -1,5 +1,6 @@
 import glob, os
 import stat
+import re
 from sklearn.model_selection import train_test_split
 
 numpy_formats = ['npy', 'npz']
@@ -60,4 +61,14 @@ def is_numpy_format(filename):
     True if file is .npy or .npz file, False otherwise.
     """
     return get_extension(filename) in numpy_formats
+
+def match_regex(pattern, string):
+    """
+    Function which searches for pattern in string and returns the matching strings
+    
+    Returns
+    -------
+    string or list of strings matching regex pattern.
+    """
+    return re.search(pattern, string).group()
 
