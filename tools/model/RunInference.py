@@ -11,6 +11,8 @@ import packages.Tensorflow.Image as ctfi
 import packages.Utility as cutil
 tf.enable_eager_execution()
 
+import packages.Tensorflow.Model.SavedModel as ctfsm
+
 def main(argv):
     # Get folder for saved model and image path
     export_dir = ''
@@ -32,12 +34,11 @@ def main(argv):
         
     predict_fn = predictor.from_saved_model(export_dir)
 
-    # TODO: Extract this information from the export dir
-    patch_size = None
-    latent_space_size = None
+    # Extract patch size and latent space size from the model identifier
+    patch_size = ctfsm.determine_patch_size(export_dir)
+    latent_space_size = ctfsm.determine_latent_space_size(export_dir)
 
-    pred = None
-    image = np.random.rand(1, 32,32,3)
+    image = None
     
     if ctfi.is_image(input_filename):
         image = ctfi.load(input_filename).numpy()
@@ -45,6 +46,9 @@ def main(argv):
         image = np.load(input_filename)
     else:
         sys.exit(3)
+
+    # Resize image to match size required by the model
+    image = np.resize(image, [patch_size, patch_size, 3])
 
     batch = np.expand_dims(image,0)
     # Make predictions
