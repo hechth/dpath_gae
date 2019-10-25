@@ -7,6 +7,7 @@ import packages.Tensorflow as ctf
 import packages.Tensorflow.Dataset as ctfd
 
 import tensorflow as tf
+tf.enable_eager_execution()
 
 def main(argv):
     parser = argparse.ArgumentParser(description='Create tfrecords dataset holding filenames matching a pattern')
