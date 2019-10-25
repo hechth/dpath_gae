@@ -2,6 +2,7 @@ import glob, os
 import stat
 import re
 from sklearn.model_selection import train_test_split
+import importlib, inspect
 
 numpy_formats = ['npy', 'npz']
 
@@ -71,4 +72,17 @@ def match_regex(pattern, string):
     string or list of strings matching regex pattern.
     """
     return re.search(pattern, string).group()
+
+def call_function(filename, function):
+    module = importlib.import_module(filename, package=None)
+    members = inspect.getmembers(module)
+    members
+
+
+    with open(filename, "r") as f:
+        text = f.readlines()
+        for line in text:
+            if line.find("def " + function) > -1:
+
+
 
