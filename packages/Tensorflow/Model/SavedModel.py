@@ -21,7 +21,7 @@ def determine_batch_size(model_dir)->int:
     -------
     batch_size: int
     """
-    return int(match_regex('(b{1}[0-9]+)',model_dir)[1:])
+    return int(match_regex('(b{1}[0-9]+)(?=-)',model_dir)[1:])
 
 def determine_latent_space_size(model_dir)->int:
     """
