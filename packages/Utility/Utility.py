@@ -3,6 +3,8 @@ import stat
 import re
 from sklearn.model_selection import train_test_split
 import importlib, inspect
+from functools import reduce
+from typing import TypeVar, Callable, Sequence
 
 numpy_formats = ['npy', 'npz']
 
@@ -94,5 +96,26 @@ def get_function(filename: str, funcname: str):
     return function
 
 
+T = TypeVar('T')
 
+def pipeline(
+        value: T,
+        function_pipeline: Sequence[Callable[[T], T]],
+) -> T:
+    '''A generic Unix-like pipeline
 
+    :param value: the value you want to pass through a pipeline
+    :param function_pipeline: an ordered list of functions that
+        comprise your pipeline
+    '''
+    return reduce(lambda v, f: f(v), function_pipeline, value)
+
+def concatenate_functions(funcs):
+    """
+    Function which takes a list of functions and returns a lambda taking a value and passing it through the specified pipeline.
+
+    Returns
+    -------
+    lambda x: pipeline(x, funcs)
+    """
+    return lambda x: pipeline(x, funcs)
