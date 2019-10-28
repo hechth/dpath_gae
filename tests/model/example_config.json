@@ -1,0 +1,20 @@
+{
+    "encoder": {
+        "input": {
+            "shape": [1],
+            "key": "val",
+            "dtype": "tf.float32"
+        },
+        "layers": [
+            {
+                "type":"dense",
+                "units": 10
+            },
+            {
+                "type":"activation",
+                "function": "relu"
+            }
+        ]
+    }
+}
+
