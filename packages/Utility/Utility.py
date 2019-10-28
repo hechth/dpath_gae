@@ -65,6 +65,19 @@ def is_numpy_format(filename):
     """
     return get_extension(filename) in numpy_formats
 
+def safe_get(key:str, dictionary:dict):
+    """
+    Function to get value for key which returns None if key doesn't exist
+    """
+    if key is not None:
+        if key in dictionary:
+            return dictionary[key]
+        else:
+            return None
+    else:
+        return None
+
+
 def match_regex(pattern, string):
     """
     Function which searches for pattern in string and returns the matching strings
@@ -119,3 +132,4 @@ def concatenate_functions(funcs):
     lambda x: pipeline(x, funcs)
     """
     return lambda x: pipeline(x, funcs)
+
