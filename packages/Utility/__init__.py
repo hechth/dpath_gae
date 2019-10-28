@@ -7,3 +7,5 @@ from .Utility import get_extension
 from .Utility import is_numpy_format
 
 from .Utility import match_regex
+
+from .Utility import get_function

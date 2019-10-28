@@ -73,16 +73,26 @@ def match_regex(pattern, string):
     """
     return re.search(pattern, string).group()
 
-def call_function(filename, function):
-    module = importlib.import_module(filename, package=None)
-    members = inspect.getmembers(module)
-    members
+def get_function(filename: str, funcname: str):
+    """
+    Function which imports the specified file and returns the function with given name using importlib.
+    Parameters
+    ----------
+    filename: string pointing to file to get the function from
+    funcname: string with name of the function
 
+    Returns
+    -------
+    function: function object with given name
+    """
+    package = os.path.dirname(filename).replace('/','.')
+    module = os.path.basename(filename).strip('.py')
 
-    with open(filename, "r") as f:
-        text = f.readlines()
-        for line in text:
-            if line.find("def " + function) > -1:
+    imported = importlib.import_module(module, package=package)
+    members = inspect.getmembers(imported)
+    function = [t[1] for t in members if t[0] == funcname][0]
+    return function
+
 
 
 

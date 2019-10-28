@@ -7,3 +7,4 @@ List of Functions:
 *   Make directory readable for all users.
 *   Collect files/directories matching a pattern.
 *   Split/shuffle a a list into two lists.
+*   get_function: Imports a module and returns a function object which can called
