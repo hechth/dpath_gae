@@ -1,4 +1,11 @@
 {
+    "features": [
+        {
+            "shape": [1],
+            "key": "val",
+            "dtype": "tf.float32"
+        }
+    ],
     "encoder": {
         "input": {
             "shape": [1],

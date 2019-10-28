@@ -260,7 +260,7 @@ def parse_component(features:dict, config:dict):
     inputs_name = cutil.safe_get('name', cfg_input)
 
     # Create input feature layer
-    feature_column = tf.feature_column.numeric_column(key=key, shape=input_shape, dtype=dtype)
+    feature_column = parse_feature(cfg_input)
     inputs = tf.Variable(tf.zeros(input_shape),dtype=dtype, expected_shape=input_shape,name=inputs_name)
     input_layer = tf.feature_column.input_layer(features, feature_column, cols_to_vars={key:inputs})
 
@@ -283,3 +283,11 @@ def parse_component(features:dict, config:dict):
         variables.append(variable)
     
     return inputs, layers, variables, cutil.concatenate_functions(funcs)
+
+def parse_feature(config):
+    # Parse input config and retrieve parameters
+    input_shape= config['shape']
+    key = config['key']
+    dtype = tf_datatypes[config['dtype']]
+    return tf.feature_column.numeric_column(key=key, shape=input_shape, dtype=dtype)
+    

@@ -15,7 +15,7 @@ def main(argv):
             'input': {
                 'shape': [1],
                 'key': 'val',
-                'dtype': tf.float32
+                'dtype': 'tf.float32'
             },
             'layers': [
                 {
@@ -24,7 +24,7 @@ def main(argv):
                 },
                 {
                     'type':'activation',
-                    'function': tf.nn.relu
+                    'function': 'relu'
                 }
             ]
         }
