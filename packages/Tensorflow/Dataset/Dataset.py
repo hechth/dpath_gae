@@ -16,7 +16,6 @@ def decode(sample, desc:dict):
     -------
     dict containing the parsed example using the passed description.
     """
-
     return tf.parse_single_example(sample, desc)
 
 def write(data, func_encode, filename):
