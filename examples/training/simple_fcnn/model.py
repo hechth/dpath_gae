@@ -42,8 +42,8 @@ def train_func():
 
 
 def main(argv):
-    parser = argparse.ArgumentParser(description='Compute latent code for image patch by model inference.')
-    parser.add_argument('export_dir',type=str,help='Path to saved model to use for inference.')
+    parser = argparse.ArgumentParser(description='Run training for specified model with fixed dataset creation.')
+    parser.add_argument('export_dir',type=str,help='Path to store the model.')
 
     args = parser.parse_args()
 
