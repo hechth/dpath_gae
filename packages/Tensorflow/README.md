@@ -2,7 +2,6 @@
 
 The packages organized in this module rely primarily on tensorflow and numpy functionality.
 
-
 List of packages:
 *   [Image](Image)
 *   [Dataset](Dataset)
@@ -18,5 +17,3 @@ Supported Datatypes:
 ## Maps
 
 File containing dictionaries which map from strings to tensorflow objects, like operations and datatypes.
-
-{% include_relative Maps.py %}
