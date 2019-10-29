@@ -25,7 +25,7 @@ def main(argv):
         features = { 'val': ctf.float_feature([x]), 'label': ctf.float_feature([y]) }
         return tf.train.Example(features=tf.train.Features(feature=features))
 
-    filename = os.path.join(git_root,'examples','training','custom_dataset','training_ds.tfrecords')
+    filename = os.path.join(git_root,'examples','training','dataset','training_ds.tfrecords')
     ctfd.write(data, func_encode, filename)
     cutil.publish(filename)
     
