@@ -3,7 +3,8 @@
         "training": {
             "filename": "examples/training/dataset/training_ds.tfrecords",
             "size": 100000,
-            "batch":10
+            "batch":10,
+            "steps":1000000
         }
     },
     "inputs":{
