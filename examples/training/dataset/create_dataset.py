@@ -14,7 +14,7 @@ tf.enable_eager_execution()
 
 def main(argv):
 
-    x_train = np.linspace(-100,100,num=100000)
+    x_train = np.linspace(-10,10, num=100000)
     y_train = [np.math.sin(x) for x in x_train]
 
     data = zip(x_train, y_train)
