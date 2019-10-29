@@ -12,7 +12,7 @@
             "dtype": "tf.float32"
         }
     },           
-    "encoder": {
+    "model": {
         "input": "val",
         "layers": [
             {
@@ -22,30 +22,20 @@
             },
             {
                 "type":"dense",
-                "units": 1000
+                "units": 100,
+                "activation":"tf.nn.relu"
             },
             {
-                "type":"activation",
-                "function": "tf.nn.relu"
-            }
-        ],
-        "output":"encoder_out"
-    },
-    "decoder": {
-        "input":"encoder_out",
-        "layers": [
-            {
                 "type":"dense",
-                "units": 100,
+                "units": 10,
                 "activation":"tf.nn.relu"
             },
             {
                 "type":"dense",
                 "units": 1
             }
-
         ],
         "output":"logits"
-    }
+    }    
 }
 

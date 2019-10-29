@@ -16,13 +16,10 @@ def my_model(features, labels, mode, params, config):
     inputs, labels = ctfm.parse_inputs(features, labels, cfg['inputs'])
     outputs = {}
 
-    encoder_layers, encoder_vars, encode = ctfm.parse_component(inputs, cfg['encoder'], outputs)
-    decoder_layers, decoder_vars, decode = ctfm.parse_component(outputs, cfg['decoder'], outputs)
+    layers, variables, forward_pass = ctfm.parse_component(inputs, cfg['model'], outputs)
 
     optimizer = tf.train.AdagradOptimizer(learning_rate=0.001)
     loss = tf.losses.absolute_difference(labels, outputs['logits'])
-
-    variables = encoder_vars + decoder_vars
 
     train_op = optimizer.minimize(loss,var_list=variables, global_step=tf.train.get_global_step())
 
@@ -50,7 +47,7 @@ def main(argv):
 
     args = parser.parse_args()
 
-    config_filename = os.path.join(git_root, 'examples','training','encoder_decoder.json')
+    config_filename = os.path.join(git_root, 'examples','training','simple_fcnn','model.json')
     
     cfg = ctfm.parse_json(config_filename)
 
