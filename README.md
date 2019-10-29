@@ -31,3 +31,11 @@ None of the C++ functionality is implemented as of now, so these are future depe
     *  Install it using [checkinstall](https://debian-administration.org/article/147/Installing_packages_from_source_code_with_checkinstall), you might want to remove it later.
 *  Install [tensorflowCC](https://github.com/FloopCZ/tensorflow_cc).
 *  Install Qt5 v5.9.5
+
+## Usage
+
+
+
+## Examples
+
+The [examples](examples) folder contains functionality which illustrates how to use this project.
