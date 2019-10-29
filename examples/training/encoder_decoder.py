@@ -50,7 +50,7 @@ def main(argv):
 
     args = parser.parse_args()
 
-    config_filename = os.path.join(git_root, 'tests','model','encoder_decoder.json')
+    config_filename = os.path.join(git_root, 'examples','training','encoder_decoder.json')
     
     cfg = ctfm.parse_json(config_filename)
 
