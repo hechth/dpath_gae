@@ -11,14 +11,18 @@ import packages.Tensorflow.Model as ctfm
 
 def main(argv):
     config_filename = os.path.join(git_root, 'tests','model','example_config.json')
-    with open(config_filename,'r') as json_file:
-        cfg = json.load(json_file)
+    cfg = ctfm.parse_json(config_filename)
 
+    features = {'val': tf.ones([10,1])}
+    labels = tf.ones([1])
 
-    features = {'val': tf.ones([1])}
-    inputs, encoder_layers, encoder_vars, encode = ctfm.parse_component(features, cfg['encoder']) 
+    inputs, labels = ctfm.parse_inputs(features,labels, cfg['inputs'])
+
+    outputs = {}
+
+    encoder_layers, encoder_vars, encode = ctfm.parse_component(inputs, cfg['encoder'], outputs) 
     print(encode(features['val']))
-
+    print(outputs['logits'])
    
     
 if __name__ == "__main__":

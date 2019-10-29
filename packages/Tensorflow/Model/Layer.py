@@ -6,8 +6,7 @@ sys.path.append(git_root)
 import tensorflow as tf
 
 import packages.Utility as cutil
-from packages.Tensorflow import tf_datatypes
-from packages.Tensorflow import tf_operations
+
 
 def avg_unpool2d(x, factor, name=None):
     '''
@@ -36,8 +35,8 @@ def _parse_dense_layer(config: dict)-> tf.layers.Dense:
     -------
     layer: tf.layers.Dense with specified configuration.
     """
-    activation = cutil.safe_get(cutil.safe_get('activation', config), tf_operations)
-    kernel_initializer = cutil.safe_get(cutil.safe_get('kernel_initializer', config), tf_operations)
+    activation = cutil.safe_get('activation', config)
+    kernel_initializer = cutil.safe_get('kernel_initializer', config)
     name = cutil.safe_get('name',config)
     trainable = cutil.safe_get('trainable', config)
 
@@ -68,9 +67,9 @@ def _parse_conv_layer(config):
     strides = cutil.safe_get('strides',config)
     kernel_size = cutil.safe_get('kernel_size',config)
     name = cutil.safe_get('name',config)
-    activation = cutil.safe_get(cutil.safe_get('activation', config), tf_operations)
-    kernel_initializer = cutil.safe_get(cutil.safe_get('kernel_initializer', config), tf_operations)
-    bias_initializer = cutil.safe_get(cutil.safe_get('bias_initializer', config), tf_operations)
+    activation = cutil.safe_get('activation', config)
+    kernel_initializer = cutil.safe_get('kernel_initializer', config)
+    bias_initializer = cutil.safe_get('bias_initializer', config)
     trainable = cutil.safe_get('trainable', config)
     transpose = cutil.safe_get('transpose', config)
 
@@ -152,9 +151,9 @@ def _parse_activation(config:dict):
     lambda x: function(x, name=name)
     """
     name=cutil.safe_get('name', config)
-    function = cutil.safe_get(cutil.safe_get('function', config), tf_operations)
-
+    function = cutil.safe_get('function', config)   
     return lambda x: function(x, name=name)
+    
 
 
 def _parse_batchnorm_layer(config:dict)->tf.layers.BatchNormalization:
@@ -182,7 +181,7 @@ _layer_map = {
     'max_pool': _parse_maxpool_layer
 }
 
-def _parse_layer(input_shape:list, config:dict):
+def parse_layer(input_shape:list, config:dict):
     """
     Function which parses a layer or activation or avg_unpool operation specified in a layer config.
     activations and avg_unpool ops have to be treated differently since they don't create a tf.layers.Layer object.
@@ -220,74 +219,34 @@ def _parse_layer(input_shape:list, config:dict):
 
 
 
-def parse_component(features:dict, config:dict):
+def parse_feature(config:dict)->tf.feature_column.numeric_column:
     """
-    Function to parse a dict holding the description for a component.
-    A component is defined by an input and a number of layers.
-
-    This function is supposed to be called in the model function of a tf.Estimator and eases model creation.
-
-    The input description is used to build the feature_column and input layer.
-    The input is then extended with batch dimension.
+    Private function to parse a single feature into a feature columns.
 
     Parameters
     ----------
-    features: dict variable which is passed to model_function at estimator creation.
-    config: dict holding keys 'input' for input speciication and 'layers', the list of layers after the input.
+    config: dict describing a single input feature. Entries: 'shape', 'key', 'dtype'
 
     Returns
     -------
-    inputs: tf.Tensor holding the inputs parsed from the feature column.
-
-    layers: list(tf.layers.Layer), all layers added for this component.
-            Layers not inheriting from tf.layers.Layer are passed as functions.
-
-    variables: list(tf.Variable), list of all variables associated with the layers of this component.
-
-    function: callable which performs a forward pass of features through the network.    
+    tf.feature_column.numeric_column(key=key, shape=input_shape, dtype=dtype)
     """
-    layers = list()
-    funcs = list()
-    variables = list()
-
-    # Shortcut to input config.
-    cfg_input = config['input']
-
-    # Parse input config and retrieve parameters
-    input_shape= cfg_input['shape']
-    key = cfg_input['key']
-    dtype = tf_datatypes[cfg_input['dtype']]
-    inputs_name = cutil.safe_get('name', cfg_input)
-
-    # Create input feature layer
-    feature_column = parse_feature(cfg_input)
-    inputs = tf.Variable(tf.zeros(input_shape),dtype=dtype, expected_shape=input_shape,name=inputs_name)
-    input_layer = tf.feature_column.input_layer(features, feature_column, cols_to_vars={key:inputs})
-
-    # Add batch dimension
-    input_shape.insert(0,-1)
-    input_reshaped = tf.reshape(input_layer, input_shape)
-
-    # Append reshape operation to functions to reshape input with batch dimension.
-    funcs.append(lambda x: tf.reshape(x, input_shape))
-    layers.append(input_reshaped)
-
-    # Get input shape for following layers
-    shape = input_reshaped.get_shape()
-
-    # Parse each layer specified in layers and append them to collections.
-    for desc in config['layers']:
-        layer,variable,function, shape = _parse_layer(shape, desc)
-        layers.append(layer)
-        funcs.append(function)
-        variables.append(variable)
-    
-    return inputs, layers, variables, cutil.concatenate_functions(funcs)
-
-def parse_feature(config):
-    # Parse input config and retrieve parameters
     input_shape= config['shape']
     key = config['key']
-    dtype = tf_datatypes[config['dtype']]
+    dtype = config['dtype']
     return tf.feature_column.numeric_column(key=key, shape=input_shape, dtype=dtype)
+
+def parse_feature_columns(features:list)->dict:
+    """
+    Function which parses the list of feature configs and returns the required input feature columns as dict mapped by their key.
+
+    Parameters
+    ----------
+    features: array of dicts describing features parsed from json holding the model configuration.
+
+    Returns
+    -------
+    feature_columns: dict of tf.feature_column.numeric_column objects mapepd by their key.
+    """
+    return [{feature['key'] : parse_feature(feature)} for feature in features]
     

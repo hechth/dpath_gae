@@ -14,3 +14,9 @@ List of tested functions:
 
 List of tested functions:
 *   [get_function](utility/call_function.py)
+
+## Model
+
+### Config
+
+Tests to check correct reading and parsing of configuration files and dictionaries.

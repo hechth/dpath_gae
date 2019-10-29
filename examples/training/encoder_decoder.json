@@ -1,0 +1,51 @@
+{   
+    "inputs":{
+        "features":[
+            {
+                "shape": [1],
+                "key": "val",
+                "dtype": "tf.float32"
+            }
+        ],
+        "labels": {
+            "shape": [1],
+            "dtype": "tf.float32"
+        }
+    },           
+    "encoder": {
+        "input": "val",
+        "layers": [
+            {
+                "type":"dense",
+                "units": 100,
+                "activation":"tf.nn.relu"
+            },
+            {
+                "type":"dense",
+                "units": 1000
+            },
+            {
+                "type":"activation",
+                "function": "tf.nn.relu"
+            }
+        ],
+        "output":"encoder_out"
+    },
+    "decoder": {
+        "input":"encoder_out",
+        "layers": [
+            {
+                "type":"dense",
+                "units": 100,
+                "activation":"tf.nn.relu"
+            },
+            {
+                "type":"dense",
+                "units": 1
+            }
+
+        ],
+        "output":"logits"
+    }
+}
+
