@@ -11,7 +11,8 @@ sys.path.append(git.Repo('.', search_parent_directories=True).working_tree_dir)
 ```
 
 List of packages:
-*   [Tensorflow](Tensorflow)     
+*   [Tensorflow](Tensorflow)
     *   [Image](Tensorflow/Image)
     *   [Dataset](Tensorflow/Dataset)
+    *   [Model](Mensorflow/Model)
 *   [Utility](Utility)

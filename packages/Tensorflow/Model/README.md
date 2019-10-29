@@ -1,5 +1,9 @@
 # Model
 
+```python
+import packages.Tensorflow.Model as ctfm
+```
+
 This package comprises all functionality related to creating models as well as most operations related to them, like saving and restoring them etc.
 
 ## Configuration
