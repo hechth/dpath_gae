@@ -17,12 +17,13 @@ def my_model(features, labels, mode, params, config):
     inputs, labels = ctfm.parse_inputs(features, labels, cfg['inputs'])
     outputs = {}
 
-    layers, variables, forward_pass = ctfm.parse_component(inputs, cfg['model'], outputs)
+    encoder_layers,  encoder_variables, encode = ctfm.parse_component(inputs, cfg['encoder'], outputs)
+    decoder_layers,  decoder_variables, decode = ctfm.parse_component(outputs, cfg['decoder'], outputs)
 
     optimizer = tf.train.AdagradOptimizer(learning_rate=0.01)
-    loss = tf.losses.absolute_difference(labels, outputs['logits'])
+    loss = tf.losses.absolute_difference(inputs['patch'], outputs['logits'])
 
-    train_op = optimizer.minimize(loss,var_list=variables, global_step=tf.train.get_global_step())
+    train_op = optimizer.minimize(loss, global_step=tf.train.get_global_step())
 
     if mode == tf.estimator.ModeKeys.EVAL:
         return tf.estimator.EstimatorSpec(mode, loss=loss, eval_metric_ops={'loss' : loss})

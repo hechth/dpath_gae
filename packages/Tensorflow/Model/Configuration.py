@@ -55,7 +55,7 @@ def parse_inputs(features:dict, labels:tf.Tensor, config: dict) -> [dict, tf.Ten
         inputs_name = cutil.safe_get('name', cfg_input)
 
         feature_column = parse_feature(cfg_input)
-        inputs[key] = tf.feature_column.input_layer(features, feature_column)
+        inputs[key] = tf.reshape(tf.feature_column.input_layer(features, feature_column), input_shape.insert(0,-1))
 
     labels_shape = config['labels']['shape']
     labels_shape.insert(0,-1)
