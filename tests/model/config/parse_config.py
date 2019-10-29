@@ -10,7 +10,7 @@ import packages.Tensorflow.Model as ctfm
 
 
 def main(argv):
-    config_filename = os.path.join(git_root, 'tests','model','example_config.json')
+    config_filename = os.path.join(git_root, 'tests','model','config','example_config.json')
     cfg = ctfm.parse_json(config_filename)
 
     features = {'val': tf.ones([10,1])}
