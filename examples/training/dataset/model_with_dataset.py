@@ -2,7 +2,7 @@ import sys, os, json, argparse
 import git
 git_root = git.Repo('.', search_parent_directories=True).working_tree_dir
 sys.path.append(git_root)
-from psutil import virtual_memory
+
 import numpy as np
 import tensorflow as tf
 tf.logging.set_verbosity(tf.logging.INFO)
@@ -31,35 +31,6 @@ def my_model(features, labels, mode, params, config):
     return tf.estimator.EstimatorSpec(mode, loss=loss, train_op=train_op)
 
 
-def construct_train_fn(config):
-    cfg_dataset = config['datasets']
-
-    cfg_train_ds = cutil.safe_get('training', cfg_dataset)
-
-    # Create operations
-    decode_op = ctfd.construct_decode_op(config['inputs'])
-    unzip_op = ctfd.construct_unzip_op(config['inputs'])
-
-    preprocess = cutil.concatenate_functions([unzip_op])
-   
-    def train_fn():
-        #Load the dataset
-        dataset = tf.data.TFRecordDataset(cfg_train_ds['filename']).map(decode_op)
-        
-        element_size = sys.getsizeof(dataset.output_types)
-        buffer_size = int(virtual_memory().total / 2 / element_size)
-
-        dataset = dataset.shuffle(buffer_size)
-
-
-        #dataset = dataset.apply(tf.data.experimental.map_and_batch(preprocess, cfg_train_ds['batch'], num_parallel_batches=os.cpu_count()))
-        
-        dataset = dataset.map(preprocess, num_parallel_calls=os.cpu_count())
-        dataset = dataset.batch(cfg_train_ds['batch'])
-        dataset = dataset.prefetch(buffer_size=1)
-        return dataset.repeat()
-
-    return train_fn
 
 
 def main(argv):
@@ -91,7 +62,7 @@ def main(argv):
       config=tf.estimator.RunConfig(model_dir=model_dir, save_summary_steps=100, log_step_count_steps=100)
     )
 
-    classifier = classifier.train(input_fn=construct_train_fn(cfg), steps=cfg_train_ds['steps'])
+    classifier = classifier.train(input_fn=ctfd.construct_train_fn(cfg), steps=cfg_train_ds['steps'])
 
 
 

@@ -5,3 +5,4 @@ from .Dataset import decode
 
 from .Dataset import construct_decode_op
 from .Dataset import construct_unzip_op
+from .Dataset import construct_train_fn

@@ -1,4 +1,14 @@
+import sys, os, json
+import git
+git_root = git.Repo('.', search_parent_directories=True).working_tree_dir
+sys.path.append(git_root)
+
+from psutil import virtual_memory
+
 import tensorflow as tf
+
+import packages.Utility as cutil
+
 
 def encode(feature: dict):
     """
@@ -121,3 +131,50 @@ def construct_unzip_op(cfg_inputs):
         return (features, label)
 
     return unzip_example
+
+def construct_train_fn(config):
+    """
+    Function to construct the training function based on the config.
+
+    Parameters
+    ----------
+    config: dict holding model configuration.
+
+    Returns
+    -------
+    train_fn: callable which is passed to estimator.train function.
+    This function prepares the dataset and returns it in a format which is suitable for the estimator API.
+    """
+    cfg_dataset = config['datasets']
+
+    cfg_train_ds = cutil.safe_get('training', cfg_dataset)
+
+    # Create operations
+    decode_op = construct_decode_op(config['inputs'])
+    unzip_op = construct_unzip_op(config['inputs'])
+
+    preprocess = cutil.concatenate_functions([unzip_op])
+   
+    def train_fn():
+        """
+        Function which is passed to .train(...) call of an estimator object.
+
+        Returns
+        -------
+        dataset: tf.data.Dataset object with elements ({'f0': v0, ... 'fx': vx}, label).
+        """
+        #Load the dataset
+        dataset = tf.data.TFRecordDataset(cfg_train_ds['filename'])
+        dataset = dataset.map(decode_op)
+
+        # Shuffle the dataset
+        element_size = sys.getsizeof(dataset.output_types)
+        buffer_size = int(virtual_memory().total / 2 / element_size)
+        dataset = dataset.shuffle(buffer_size)
+
+        # Apply possible preprocessing, batch and prefetch the dataset.
+        dataset = dataset.apply(tf.data.experimental.map_and_batch(preprocess, cfg_train_ds['batch'], num_parallel_batches=os.cpu_count()))
+        dataset = dataset.prefetch(buffer_size=1)
+        return dataset.repeat()
+
+    return train_fn
