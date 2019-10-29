@@ -39,6 +39,7 @@ XDG_CACHE_HOME
 #tensorflow specific files
 .index
 .meta
+.tfrecords
 
 #Stored numpy data
 *.npy

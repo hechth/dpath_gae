@@ -42,6 +42,8 @@ def construct_train_fn(config):
     decode_op = ctfd.construct_decode_op(config['inputs'])
     unzip_op = ctfd.construct_unzip_op(config['inputs'])
    
+    
+    preprocessing_train = cfg_train_ds['']
 
     def train_fn():
         #Load the dataset
