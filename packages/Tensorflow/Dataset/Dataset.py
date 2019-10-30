@@ -167,8 +167,11 @@ def construct_train_fn(config):
         dataset = tf.data.TFRecordDataset(cfg_train_ds['filename'])
         dataset = dataset.map(decode_op)
 
+        element_size = 0
+        for output_type, output_shape  in zip(dataset.output_types.values(), dataset.output_shapes.values()):
+            element_size += output_shape.num_elements() * output_type.size
+
         # Shuffle the dataset
-        element_size = sys.getsizeof(dataset.output_types)
         buffer_size = int(virtual_memory().total / 2 / element_size)
         dataset = dataset.shuffle(buffer_size)
 
