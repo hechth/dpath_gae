@@ -1,13 +1,14 @@
 {   
-    "datasets": {
-        "training": {
-            "filename": "/home/hecht/build/thesis/datasets/train_ds_40000000_32_0.tfrec",
-            "size": 100000,
-            "batch":100,
-            "steps":10000
-        }
-    },
+    
     "inputs":{
+        "datasets": {
+            "training": {
+                "filename": "/home/hecht/build/thesis/datasets/train_ds_40000000_32_0.tfrec",
+                "size": 100000,
+                "batch":100,
+                "steps":10000
+            }
+        },
         "features":[
             {
                 "shape": [32, 32, 3],

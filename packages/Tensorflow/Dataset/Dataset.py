@@ -150,10 +150,16 @@ def construct_train_fn(config):
     cfg_train_ds = cutil.safe_get('training', cfg_dataset)
 
     # Create operations
-    decode_op = construct_decode_op(config['inputs'])
-    unzip_op = construct_unzip_op(config['inputs'])
+    decode_op = construct_decode_op(config)
+    unzip_op = construct_unzip_op(config)
 
-    preprocess = cutil.concatenate_functions([unzip_op])
+    operations = []
+    if 'operations' in cfg_train_ds:
+        for op in cfg_train_ds['operations']:
+            operations.append(cutil.get_function(op['module'], op['name']))
+
+    operations.append(unzip_op)
+    preprocess = cutil.concatenate_functions(operations)
    
     def train_fn():
         """

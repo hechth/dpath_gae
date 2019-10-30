@@ -16,8 +16,8 @@ def my_model(features, labels, mode, params, config):
 
     inputs, labels = ctfm.parse_inputs(features, labels, cfg['inputs'])
     outputs = {}
-
-    layers, variables, forward_pass = ctfm.parse_component(inputs, cfg['model'], outputs)
+    
+    layers, variables, forward_pass = ctfm.parse_component(inputs, cfg['components'][0], outputs)
 
     optimizer = tf.train.AdagradOptimizer(learning_rate=0.01)
     loss = tf.losses.absolute_difference(labels, outputs['logits'])
@@ -43,7 +43,7 @@ def main(argv):
     
     cfg = ctfm.parse_json(config_filename)
 
-    cfg_dataset = cfg['datasets']
+    cfg_dataset = cfg['inputs']['datasets']
     
     cfg_train_ds = cutil.safe_get('training', cfg_dataset)
 
@@ -62,7 +62,7 @@ def main(argv):
       config=tf.estimator.RunConfig(model_dir=model_dir, save_summary_steps=100, log_step_count_steps=100)
     )
 
-    classifier = classifier.train(input_fn=ctfd.construct_train_fn(cfg), steps=cfg_train_ds['steps'])
+    classifier = classifier.train(input_fn=ctfd.construct_train_fn(cfg['inputs']), steps=cfg_train_ds['steps'])
 
 
 

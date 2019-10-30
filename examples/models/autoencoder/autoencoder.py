@@ -57,7 +57,7 @@ def main(argv):
       config=tf.estimator.RunConfig(model_dir=model_dir, save_summary_steps=100, log_step_count_steps=100)
     )
 
-    classifier = classifier.train(input_fn=ctfd.construct_train_fn(cfg), steps=cfg['datasets']['training']['steps'])
+    classifier = classifier.train(input_fn=ctfd.construct_train_fn(cfg['inputs']), steps=cfg['inputs']['datasets']['training']['steps'])
 
 
 
