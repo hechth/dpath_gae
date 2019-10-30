@@ -15,13 +15,13 @@ def my_model(features, labels, mode, params, config):
     cfg = params['config']
 
     inputs, labels = ctfm.parse_inputs(features, labels, cfg['inputs'])
-    outputs = {}
-
-    encoder_layers,  encoder_variables, encode = ctfm.parse_component(inputs, cfg['encoder'], outputs)
-    decoder_layers,  decoder_variables, decode = ctfm.parse_component(outputs, cfg['decoder'], outputs)
+    components = {}
+   
+    for comp in cfg['components']:
+        components[comp['name']] = ctfm.parse_component(inputs, comp, inputs)
 
     optimizer = tf.train.AdagradOptimizer(learning_rate=0.01)
-    loss = tf.losses.absolute_difference(inputs['patch'], outputs['logits'])
+    loss = tf.losses.absolute_difference(inputs['patch'], inputs['logits'])
 
     train_op = optimizer.minimize(loss, global_step=tf.train.get_global_step())
 

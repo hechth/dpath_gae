@@ -4,7 +4,7 @@
             "filename": "/home/hecht/build/thesis/datasets/train_ds_40000000_32_0.tfrec",
             "size": 100000,
             "batch":100,
-            "steps":100000
+            "steps":10000
         }
     },
     "inputs":{
@@ -20,48 +20,52 @@
             "key": "label",
             "dtype": "tf.int64"
         }   
-    },           
-    "encoder": {
-        "input": "patch",
-        "layers": [
-            {
-                "type":"conv",
-                "filters": 32,
-                "kernel_size": [3,3],
-                "strides":[1,1]
-            },
-            {
-                "type":"batch_norm",
-                "axis": [1,2,3]
-            },
-            {
-                "type":"activation",
-                "function":"tf.nn.relu"
-            },
-            {
-                "type":"max_pool",
-                "pool_size":[2,2],
-                "strides":[2,2]
-            }
-        ],
-        "output":"code"
     },
-    "decoder": {
-        "input":"code",
-        "layers": [
-            {
-                "type": "avg_unpool",
-                "factor": 2
-            },
-            {
-                "type":"conv",
-                "filters": 3,
-                "kernel_size": [3,3],
-                "strides":[1,1],
-                "transpose": true
-            }
-        ],
-        "output":"logits"
-    }
+    "components": [      
+        {
+            "name":"encoder",
+            "input": "patch",
+            "layers": [
+                {
+                    "type":"conv",
+                    "filters": 32,
+                    "kernel_size": [3,3],
+                    "strides":[1,1]
+                },
+                {
+                    "type":"batch_norm",
+                    "axis": [1,2,3]
+                },
+                {
+                    "type":"activation",
+                    "function":"tf.nn.relu"
+                },
+                {
+                    "type":"max_pool",
+                    "pool_size":[2,2],
+                    "strides":[2,2]
+                }
+            ],
+            "output":"code"
+        },
+        {
+            "name": "decoder",
+            "input":"code",
+            "layers": [
+                {
+                    "type": "avg_unpool",
+                    "factor": 2
+                },
+                {
+                    "type":"conv",
+                    "filters": 3,
+                    "kernel_size": [3,3],
+                    "strides":[1,1],
+                    "transpose": true
+                }
+            ],
+            "output":"logits"
+        }
+    ]
 }
 
