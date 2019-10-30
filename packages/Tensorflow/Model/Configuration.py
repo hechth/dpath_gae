@@ -55,7 +55,9 @@ def parse_inputs(features:dict, labels:tf.Tensor, config: dict) -> [dict, tf.Ten
         inputs_name = cutil.safe_get('name', cfg_input)
 
         feature_column = parse_feature(cfg_input)
-        inputs[key] = tf.reshape(tf.feature_column.input_layer(features, feature_column), input_shape.insert(0,-1))
+        
+        input_shape.insert(0,-1)
+        inputs[key] = tf.reshape(tf.feature_column.input_layer(features, feature_column), input_shape)
 
     labels_shape = config['labels']['shape']
     labels_shape.insert(0,-1)
@@ -98,16 +100,16 @@ def parse_component(inputs:dict, config:dict, outputs: dict):
     input_tensor = inputs[config['input']]
     shape = input_tensor.get_shape()
 
-    # Parse each layer specified in layers and append them to collections.
-    for desc in config['layers']:
-        layer,variable,function, shape = parse_layer(shape, desc)
-        if layer is not None:
-            layers.append(layer)
-        if variable is not None:
-            variables.append(variable)
-        funcs.append(function)
-    
-    function = cutil.concatenate_functions(funcs)
-    outputs[config['output']] = function(input_tensor)
-    
+    with tf.name_scope(config['name']) as scope:
+        # Parse each layer specified in layers and append them to collections.
+        for desc in config['layers']:
+            layer,variable,function, shape = parse_layer(shape, desc)
+            if layer is not None:
+                layers.append(layer)
+            if variable is not None:
+                variables.append(variable)
+            funcs.append(function)
+
+        function = cutil.concatenate_functions(funcs)
+        outputs[config['output']] = function(input_tensor)    
     return layers, variables, function
