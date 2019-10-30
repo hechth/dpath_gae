@@ -208,7 +208,7 @@ def parse_layer(input_shape:list, config:dict):
         layer = None
         variables = None
         function = _parse_avgunpool_layer(config)
-        output_shape = function(tf.ones(input_shape)).get_shape()
+        output_shape = function(tf.placeholder(tf.float32, shape=input_shape)).get_shape()
     else:
         layer = _layer_map[config['type']](config)
         layer.build(input_shape)
