@@ -34,6 +34,14 @@ None of the C++ functionality is implemented as of now, so these are future depe
 
 ## Usage
 
+Models are defined using json configuration files which are passed to the program which creates the respective tf.estimator model and the operations required for training etc.
+
+### JSON Configuration Files
+A JSON config file has to contain the descriptions for the inputs and components.
+
+#### Inputs
+
+
 
 
 ## Examples
