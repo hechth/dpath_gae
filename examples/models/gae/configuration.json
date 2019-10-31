@@ -36,7 +36,7 @@
         "components": [      
             {
                 "name":"encoder",
-                "input": "val",
+                "input": "patch",
                 "layers": [
                     {
                         "type":"conv",
