@@ -1,12 +1,12 @@
 { 
     "datasets": {
         "training": {
-            "filename": "examples/training/dataset/training_ds.tfrecords",
+            "filename": "examples/dataset/training_ds.tfrecords",
             "size": 100000,
             "steps":100000,
             "operations": [
                 {
-                    "module":"examples/training/dataset/operations.py",
+                    "module":"examples/dataset/operations.py",
                     "name":"cast_to_float16"
                 }
             ]
@@ -24,50 +24,6 @@
                 "dtype": "tf.float32"
             }
         ]
-    },
-    "model": {
-        "inputs":{        
-            "features":[
-                {
-                    "shape": [1],
-                    "key": "val",
-                    "dtype": "tf.float16"
-                }
-            ],
-            "labels": {
-                "shape": [1],
-                "key": "label",
-                "dtype": "tf.float32"
-            }        
-        },
-        "components": [     
-            {
-                "name": "model",
-                "input": "val",
-                "layers": [
-                    {
-                        "type":"dense",
-                        "units": 100,
-                        "activation":"tf.nn.relu"
-                    },
-                    {
-                        "type":"dense",
-                        "units": 100,
-                        "activation":"tf.nn.relu"
-                    },
-                    {
-                        "type":"dense",
-                        "units": 10,
-                        "activation":"tf.nn.relu"
-                    },
-                    {
-                        "type":"dense",
-                        "units": 1
-                    }
-                ],
-                "output":"logits"
-            }
-        ]
-    }   
+    }
 }
 

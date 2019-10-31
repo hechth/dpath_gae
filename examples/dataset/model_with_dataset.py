@@ -39,19 +39,20 @@ def main(argv):
 
     args = parser.parse_args()
 
-    config_filename = os.path.join(git_root, 'examples','training','dataset','model_with_dataset.json')
+    dataset_config_file = os.path.join(git_root, 'examples','dataset','dataset.json')
+    model_config_file = os.path.join(git_root, 'examples','dataset', 'model.json')
     
-    cfg = ctfm.parse_json(config_filename)
 
-    cfg_dataset = cfg['inputs']['datasets']
-    
-    cfg_train_ds = cutil.safe_get('training', cfg_dataset)
+    cfg_datasets = ctfm.parse_json(dataset_config_file)['datasets']
+    cfg_model = ctfm.parse_json(model_config_file)['model']
+  
+    cfg_train_ds = cutil.safe_get('training', cfg_datasets)
 
 
     model_dir = args.export_dir
 
     params_dict = {
-        'config': cfg,
+        'config': { **cfg_datasets, **cfg_model },
         'model_dir': model_dir,
     }          
 
@@ -62,7 +63,7 @@ def main(argv):
       config=tf.estimator.RunConfig(model_dir=model_dir, save_summary_steps=100, log_step_count_steps=100)
     )
 
-    classifier = classifier.train(input_fn=ctfd.construct_train_fn(cfg['inputs']), steps=cfg_train_ds['steps'])
+    classifier = classifier.train(input_fn=ctfd.construct_train_fn(cfg_datasets), steps=cfg_train_ds['steps'])
 
 
 

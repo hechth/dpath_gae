@@ -58,18 +58,15 @@ def write(data, func_encode, filename):
     writer.flush()
     writer.close()
 
-def construct_decode_op(cfg_inputs):
+def construct_decode_op(cfg_features):
     """
     Function that based on the feature descriptions in a config file constructs the decode operation
     which deserializes the samples into a dict mapping the keys to the features
 
     Parameters
     ----------
-    cfg_inputs: dict describing input configuration with 'features' and 'labels'
+    cfg_features: dict describing the 'features'
     """
-
-    cfg_features = cfg_inputs['features']
-    cfg_labels = cfg_inputs['labels']
 
     def decode_example(example_proto):
         """
@@ -85,29 +82,20 @@ def construct_decode_op(cfg_inputs):
         """   
         desc = {}
         for entry in cfg_features:
-            desc[entry['key']] = tf.FixedLenFeature(entry['shape'], entry['dtype'])
-        
-        desc[cfg_labels['key']] = tf.FixedLenFeature(cfg_labels['shape'], cfg_labels['dtype'])
+            desc[entry['key']] = tf.FixedLenFeature(entry['shape'], entry['dtype'])     
 
         return tf.parse_single_example(example_proto, desc)
     return decode_example
 
-def construct_unzip_op(cfg_inputs):
+def construct_unzip_op():
     """
     Function that based on the feature descriptions in a config file constructs the final mapping operation
     which transforms the data in the right format.
-
-    Parameters
-    ----------
-    cfg_inputs: dict describing input configuration with 'features' and 'labels'
 
     Returns
     -------
     unzip_example: callable which returns a pair (features, label).
     """
-
-    cfg_features = cfg_inputs['features']
-    cfg_labels = cfg_inputs['labels']
 
     def unzip_example(example_proto):
         """
@@ -125,9 +113,12 @@ def construct_unzip_op(cfg_inputs):
         Pair of form ({ 'f0': val0, 'f1': val1, ..., 'fx': valx }, val_label)
         """   
         features = {}
-        for entry in cfg_features:
-            features[entry['key']] = example_proto[entry['key']]
-        label = example_proto[cfg_labels['key']]
+        for key, value in example_proto.items():
+            # Check for key with value 'label' to find the dict entry mapping to the label
+            if key == 'label':
+                label = value
+            else:
+                features[key] = value
 
         return (features, label)
 
@@ -146,13 +137,14 @@ def construct_train_fn(config):
     train_fn: callable which is passed to estimator.train function.
     This function prepares the dataset and returns it in a format which is suitable for the estimator API.
     """
-    cfg_dataset = config['datasets']
 
-    cfg_train_ds = cutil.safe_get('training', cfg_dataset)
+    cfg_train_ds = cutil.safe_get('training', config)
 
-    # Create operations
-    decode_op = construct_decode_op(config)
-    unzip_op = construct_unzip_op(config)
+    # Create decode operation
+    decode_op = construct_decode_op(config['features'])
+
+    # Create unzip operation
+    unzip_op = construct_unzip_op()
 
     operations = [decode_op]
     if 'operations' in cfg_train_ds:
@@ -184,7 +176,7 @@ def construct_train_fn(config):
         buffer_size = tf.constant(int((virtual_memory().total / 2) / element_size), tf.int64)
         dataset = dataset.shuffle(buffer_size)
 
-        dataset = dataset.batch(cfg_train_ds['batch'])
+        dataset = dataset.batch(config['batch'])
         dataset = dataset.prefetch(buffer_size=1)
         return dataset.repeat()
 
