@@ -47,7 +47,7 @@ def main(argv):
 
     args = parser.parse_args()
 
-    config_filename = os.path.join(git_root, 'examples','training','simple_fcnn','model.json')
+    config_filename = os.path.join(git_root, 'examples','models','simple_fcnn','model.json')
     
     cfg = ctfm.parse_json(config_filename)
 
