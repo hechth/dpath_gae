@@ -97,7 +97,47 @@ For examples of how to specify possible configurations and the corresponding pyt
 
 ### Datasets
 
+Dataset preparation can be implemented oneself by implementing the function passed to tf.Estimator.train(...).
 
+```python
+def train_fn(args):
+    # Load and preprocess dataset.
+    # dataset = tf.data.TFRecordDataset(...)
+    # dataset = dataset.map(...)
+    return dataset
+
+def main(argv):
+    # ...
+    classifier.train(input_fn=train_fn, steps=steps)
+    # ...
+```
+
+Another option is to specify the dataset in the JSON configuration file, this is illustrated in an [example](examples/dataset).
+
+```json
+{ 
+    "datasets": {
+        "training": {
+            "filename": "examples/dataset/training_ds.tfrecords",
+            "size": 100000,
+            "steps":100000,
+            "operations": [ "..." ]
+        },
+        "validation": { "..." },
+        "test": { "..." },
+        "batch":200,
+        "features":[ "..." ]
+    }
+}
+```
+
+Fields describing individual datasets which can be populated are *training*, *validation* and *test*.
+Currently, only *training* is supported.
+
+Each dataset contains the *filename*, the number of samples to extract from this dataset as *size*, the number of *steps* to run on this dataset and an optional array of *operations* to run in the preprocessing.
+
+Entries valid for all datasets are the *batch* size to use and the *features* of the dataset on disk, a list of triples containing of *key*, *shape* and *dtype*, similar to the features defined as model inputs.
+Note that the label has to be defined as a feature with the *key* "label".
 
 
 ## Examples
