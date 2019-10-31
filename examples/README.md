@@ -8,8 +8,8 @@ The model is specified by its *inputs* and *components*.
 ```json
 {
     "model": {
-        "inputs": { ... },           
-        "components":[ ... ]
+        "inputs": { "..." },           
+        "components":[ "..." ]
     }
 }
 ```
@@ -18,7 +18,6 @@ The *inputs* are supposed to have the following structure:
 
 ```json
 {
-    ...
     "inputs": {
         "features":[
             {
@@ -32,7 +31,6 @@ The *inputs* are supposed to have the following structure:
             "dtype": "tf.float32"
         }
     }
-    ...
 }
 ```
 
@@ -42,16 +40,14 @@ The second part of the model are its *components*.
 
 ```json
 {
-    ...,
     "components":[
         {
             "name":"network",
             "input": "val",
-            "layers": [ ... ],
+            "layers": [ "..." ],
             "output":"logits"
         }
-    ],
-    ...
+    ]
 }
 ```
 
@@ -59,6 +55,7 @@ A *component* is defined by its *name*, *input*, the *layers* and its *output*.
 
 The *input* of a component is the *key* of a feature describes in the model *inputs* or the name defined by the *output* field of a preceding component. The *output* field therefore defines the key under which the output values of this component can be accessed.
 *Layers* is an array, each entry defining a layer in the model. The layers are connected in the ordering in which they are defined in the array.
+
 ### Autoencoder
 
 ### Simple Model
