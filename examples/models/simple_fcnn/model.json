@@ -1,41 +1,46 @@
-{   
-    "inputs":{
-        "features":[
-            {
+{
+    "model": {
+        "inputs":{
+            "features":[
+                {
+                    "shape": [1],
+                    "key": "val",
+                    "dtype": "tf.float32"
+                }
+            ],
+            "labels": {
                 "shape": [1],
-                "key": "val",
                 "dtype": "tf.float32"
             }
-        ],
-        "labels": {
-            "shape": [1],
-            "dtype": "tf.float32"
-        }
-    },           
-    "model": {
-        "input": "val",
-        "layers": [
+        },           
+        "components":[
             {
-                "type":"dense",
-                "units": 100,
-                "activation":"tf.nn.relu"
-            },
-            {
-                "type":"dense",
-                "units": 100,
-                "activation":"tf.nn.relu"
-            },
-            {
-                "type":"dense",
-                "units": 10,
-                "activation":"tf.nn.relu"
-            },
-            {
-                "type":"dense",
-                "units": 1
+                "name":"network",
+                "input": "val",
+                "layers": [
+                    {
+                        "type":"dense",
+                        "units": 100,
+                        "activation":"tf.nn.relu"
+                    },
+                    {
+                        "type":"dense",
+                        "units": 100,
+                        "activation":"tf.nn.relu"
+                    },
+                    {
+                        "type":"dense",
+                        "units": 10,
+                        "activation":"tf.nn.relu"
+                    },
+                    {
+                        "type":"dense",
+                        "units": 1
+                    }
+                ],
+                "output":"logits"
             }
-        ],
-        "output":"logits"
-    }    
+        ]
+    }
 }
 

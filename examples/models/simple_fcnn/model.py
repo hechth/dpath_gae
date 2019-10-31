@@ -16,7 +16,7 @@ def my_model(features, labels, mode, params, config):
     inputs, labels = ctfm.parse_inputs(features, labels, cfg['inputs'])
     outputs = {}
 
-    layers, variables, forward_pass = ctfm.parse_component(inputs, cfg['model'], outputs)
+    layers, variables, forward_pass = ctfm.parse_component(inputs, cfg['components'][0], outputs)
 
     optimizer = tf.train.AdagradOptimizer(learning_rate=0.001)
     loss = tf.losses.absolute_difference(labels, outputs['logits'])
@@ -49,12 +49,12 @@ def main(argv):
 
     config_filename = os.path.join(git_root, 'examples','models','simple_fcnn','model.json')
     
-    cfg = ctfm.parse_json(config_filename)
+    cfg_model = ctfm.parse_json(config_filename)['model']
 
     model_dir = args.export_dir
 
     params_dict = {
-        'config': cfg,
+        'config': cfg_model,
         'model_dir': model_dir,
     }          
 
