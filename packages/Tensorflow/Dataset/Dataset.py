@@ -4,6 +4,7 @@ git_root = git.Repo('.', search_parent_directories=True).working_tree_dir
 sys.path.append(git_root)
 
 from psutil import virtual_memory
+from objsize import get_deep_size
 
 import tensorflow as tf
 
@@ -153,7 +154,7 @@ def construct_train_fn(config):
     decode_op = construct_decode_op(config)
     unzip_op = construct_unzip_op(config)
 
-    operations = []
+    operations = [decode_op]
     if 'operations' in cfg_train_ds:
         for op in cfg_train_ds['operations']:
             operations.append(cutil.get_function(op['module'], op['name']))
@@ -171,18 +172,19 @@ def construct_train_fn(config):
         """
         #Load the dataset
         dataset = tf.data.TFRecordDataset(cfg_train_ds['filename'])
-        dataset = dataset.map(decode_op)
 
-        element_size = 0
-        for output_type, output_shape  in zip(dataset.output_types.values(), dataset.output_shapes.values()):
-            element_size += output_shape.num_elements() * output_type.size
-
-        # Shuffle the dataset
-        buffer_size = int(virtual_memory().total / 2 / element_size)
-        dataset = dataset.shuffle(buffer_size)
 
         # Apply possible preprocessing, batch and prefetch the dataset.
-        dataset = dataset.apply(tf.data.experimental.map_and_batch(preprocess, cfg_train_ds['batch'], num_parallel_batches=os.cpu_count()))
+        dataset = dataset.map(preprocess, num_parallel_calls=os.cpu_count())
+
+        sample = tf.data.experimental.get_single_element(dataset.take(1))
+        element_size = get_deep_size(sample)        
+
+        # Shuffle the dataset
+        buffer_size = tf.constant(int((virtual_memory().total / 2) / element_size), tf.int64)
+        dataset = dataset.shuffle(buffer_size)
+
+        dataset = dataset.batch(cfg_train_ds['batch'])
         dataset = dataset.prefetch(buffer_size=1)
         return dataset.repeat()
 
