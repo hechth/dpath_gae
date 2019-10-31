@@ -14,13 +14,14 @@ import packages.Tensorflow.Dataset as ctfd
 def my_model(features, labels, mode, params, config):
     cfg = params['config']
 
-    inputs, labels = ctfm.parse_inputs(features, labels, cfg['inputs'])
+    tensors, labels = ctfm.parse_inputs(features, labels, cfg['inputs'])
     outputs = {}
     
-    layers, variables, forward_pass = ctfm.parse_component(inputs, cfg['components'][0], outputs)
+    for component in cfg['components']:
+        layers, variables, forward_pass = ctfm.parse_component(tensors, component, tensors)
 
     optimizer = tf.train.AdagradOptimizer(learning_rate=0.01)
-    loss = tf.losses.absolute_difference(labels, outputs['logits'])
+    loss = tf.losses.absolute_difference(labels, tensors['logits'])
 
     train_op = optimizer.minimize(loss,var_list=variables, global_step=tf.train.get_global_step())
 
@@ -39,6 +40,7 @@ def main(argv):
 
     args = parser.parse_args()
 
+    # Load config files, separated in this example.
     dataset_config_file = os.path.join(git_root, 'examples','dataset','dataset.json')
     model_config_file = os.path.join(git_root, 'examples','dataset', 'model.json')
     
@@ -52,7 +54,7 @@ def main(argv):
     model_dir = args.export_dir
 
     params_dict = {
-        'config': { **cfg_datasets, **cfg_model },
+        'config': cfg_model ,
         'model_dir': model_dir,
     }          
 
