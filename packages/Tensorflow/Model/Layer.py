@@ -174,11 +174,21 @@ def _parse_batchnorm_layer(config:dict)->tf.layers.BatchNormalization:
     name=cutil.safe_get('name', config)
     return tf.layers.BatchNormalization(axis=axis,name=name)
 
+def _parse_sampling_layer(config:dict):
+    dims = cutil.safe_get('dims', config)
+    name = cutil.safe_get('name', config)
+
+    mean = tf.layers.Dense(dims, activation=None, name='mean', kernel_initializer=tf.initializers.lecun_uniform(), bias_initializer=tf.ones_initializer())
+    log_sigma_sq = tf.layers.Dense(dims, activation=None, name='log_sigma_sq', kernel_initializer=tf.initializers.lecun_uniform(), bias_initializer=tf.ones_initializer())
+    
+    return mean, log_sigma_sq
+
 _layer_map = {
     'dense': _parse_dense_layer,
     'conv': _parse_conv_layer,
     'batch_norm': _parse_batchnorm_layer,
-    'max_pool': _parse_maxpool_layer
+    'max_pool': _parse_maxpool_layer,
+    'sampler': _parse_sampling_layer
 }
 
 def parse_layer(input_shape:list, config:dict):
