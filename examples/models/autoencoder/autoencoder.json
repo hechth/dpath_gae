@@ -12,7 +12,7 @@
                 "shape": [1],
                 "dtype": "tf.float32"
             }
-        },           
+        },
         "components": [      
             {
                 "name":"encoder",
