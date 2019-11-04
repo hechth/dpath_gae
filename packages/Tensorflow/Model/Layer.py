@@ -118,6 +118,10 @@ def _parse_maxpool_layer(config:dict)->tf.layers.MaxPooling2D:
 
     return tf.layers.MaxPooling2D(pool_size, strides, name=name)
 
+def _parse_flatten_layer(config):
+    name = config.get('name')
+    return tf.layers.Flatten(name=name)
+
 def _parse_avgunpool_layer(config:dict):
     """
     Function to create and avg unpooling layer with given factor.
@@ -188,8 +192,70 @@ _layer_map = {
     'conv': _parse_conv_layer,
     'batch_norm': _parse_batchnorm_layer,
     'max_pool': _parse_maxpool_layer,
-    'sampler': _parse_sampling_layer
+    'flatten': _parse_flatten_layer
 }
+
+def _parse_sampler(input_shape, config):
+    """
+    Function to create a sampling layer of specified dimensionality.
+
+    Parameters
+    ----------
+        input_shape: shape of the input data as list of tf.TensorShape
+        config: dict holding configuration of the sampling layer.
+
+    Returns
+    -------
+        layer: list of tf.layers.Layer holding the mean and log_sigma_sq layer.
+        variables: list of variables associated with both layers.
+        function: function which produces sample from input using the mean and log_sigma_sq layers
+        output_shape: shape of the output tensor
+    """
+    name = config.get('name')
+    mean = tf.layers.Dense(config['dims'],name=name + '_mean')
+    mean.build(input_shape)
+    
+    log_sigma_sq = mean = tf.layers.Dense(config['dims'],name=name + '_log_sigma_sq')
+    log_sigma_sq.build(input_shape)
+
+    sample_shape = mean.compute_output_shape(input_shape)
+
+    def sample(mean, log_sigma_sq):
+        eps_shape = tf.shape(mean)
+        eps = tf.random_normal( eps_shape, 0, 1, dtype=tf.float32 )
+        z = tf.add(mean, tf.multiply(tf.sqrt(tf.exp(log_sigma_sq)), eps), name=name)
+        return z
+
+    layer = [mean, log_sigma_sq]
+    variables = [mean.variables, log_sigma_sq.variables]
+    function = lambda x: sample(mean(x), log_sigma_sq(x))
+    output_shape = sample_shape
+
+    return layer, variables, function, output_shape
+
+def _parse_reshape(input_shape, config):
+    """
+    Parse reshape operation specification to create reshape operation in model.
+
+    Parameters
+    ----------
+        input_shape: shape of the input data as list of tf.TensorShape
+        config: dict holding new shape info.
+
+    Returns
+    -------
+        layer: None
+        variables: None
+        function: function which reshapes the input
+        output_shape: shape of the output tensor
+    """
+    new_shape = config.get('shape')
+    new_shape.insert(0, -1)
+    name = config.get('name')
+
+    function = lambda x: tf.reshape(x, new_shape)
+    return None, None, function, new_shape
+
 
 def parse_layer(input_shape:list, config:dict):
     """
@@ -198,16 +264,15 @@ def parse_layer(input_shape:list, config:dict):
 
     Parameters
     ----------
-    input_shape: shape information about input tensor
-
-    config:dict holding layer configuration for key 'type'. Other keys depend on layer type.
+        input_shape: shape information about input tensor
+        config:dict holding layer configuration for key 'type'. Other keys depend on layer type.
 
     Returns
     -------
-    layer: tf.layers.Layer object or None
-    variables: tf.Variable object or None
-    function: lambda <x> callable which applies the layer or operation
-    output_shape: list holding information of shape after transformation
+        layer: tf.layers.Layer object or None
+        variables: tf.Variable object or None
+        function: lambda <x> callable which applies the layer or operation
+        output_shape: list holding information of shape after transformation
     """
     if config['type'] == 'activation':
         layer = None
@@ -219,6 +284,10 @@ def parse_layer(input_shape:list, config:dict):
         variables = None
         function = _parse_avgunpool_layer(config)
         output_shape = function(tf.placeholder(tf.float32, shape=input_shape)).get_shape()
+    elif config['type'] == 'sampler':
+        return _parse_sampler(input_shape, config)
+    elif config['type'] == 'reshape':
+        return _parse_reshape(input_shape, config)
     else:
         layer = _layer_map[config['type']](config)
         layer.build(input_shape)
@@ -226,7 +295,6 @@ def parse_layer(input_shape:list, config:dict):
         output_shape = layer.compute_output_shape(input_shape)
         function = layer.apply
     return layer, variables, function, output_shape
-
 
 
 def parse_feature(config:dict)->tf.feature_column.numeric_column:
