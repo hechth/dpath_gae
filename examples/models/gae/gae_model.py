@@ -14,11 +14,16 @@ import packages.Tensorflow.Dataset as ctfd
 def my_model(features, labels, mode, params, config):
     cfg = params['config']
 
-    tensors, labels = ctfm.parse_inputs(features, labels, cfg['inputs'])
+    tensors, labels = ctfm.parse_inputs(features, labels, cfg['inputs'])   
+    
     components = {}
-   
     for comp in cfg['components']:
-        components[comp['name']] = ctfm.parse_component(tensors, comp, tensors)
+        components[comp['name']] = comp
+
+    encoder = ctfm.parse_component(tensors, components['encoder'], tensors)
+    sampler = ctfm.parse_component(tensors, components['sampler'], tensors)
+    decoder = ctfm.parse_component(tensors, components['decoder'], tensors)
+
 
     optimizer = tf.train.AdagradOptimizer(learning_rate=0.01)
     loss = tf.losses.absolute_difference(tensors['patch'], tensors['logits'])

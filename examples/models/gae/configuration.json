@@ -33,6 +33,12 @@
                 "dtype": "tf.int64"
             }
         },
+        "parameters": {
+            "beta": 5,
+            "alpha": 1,
+            "delta": 1,
+            "stain_code_size":6
+        },
         "components": [      
             {
                 "name":"encoder",
@@ -132,6 +138,18 @@
                         "type":"max_pool",
                         "pool_size":[2,2],
                         "strides":[2,2]
+                    }
+                ],
+                "output":"encoded_patch"
+            },
+            {
+                "name":"sampler",
+                "input":"encoded_patch",
+                "layers": [
+                    {
+                        "type":"sampler",
+                        "dims":18,
+                        "name":"z"
                     }
                 ],
                 "output":"code"
