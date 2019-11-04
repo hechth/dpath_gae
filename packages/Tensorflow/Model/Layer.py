@@ -256,6 +256,31 @@ def _parse_reshape(input_shape, config):
     function = lambda x: tf.reshape(x, new_shape)
     return None, None, function, new_shape
 
+def _parse_slice(input_shape:list, config:dict):
+    """
+    Function which parses slice extraction function to use inside a model.
+
+    Parameters
+    ----------
+        input_shape: shape of input data
+        config: dict holding 'begin':list and 'size':list entries
+
+    Returns
+    -------
+        layers: None
+        variables: None
+        function: lambda x: tf.slice(x, begin, size, name=config.get('name'))
+        output_shape: tf.TensorShape holding output tensor shape
+    """
+    begin = config.get('begin')
+    begin.insert(0, -1)
+
+    size = config.get('size')
+    size.insert(0, -1)
+
+    function = lambda x: tf.slice(x, begin, size, name=config.get('name'))
+    output_shape = function(tf.placeholder(tf.float32, shape=input_shape)).get_shape()
+    return None, None, function, output_shape
 
 def parse_layer(input_shape:list, config:dict):
     """
@@ -288,6 +313,8 @@ def parse_layer(input_shape:list, config:dict):
         return _parse_sampler(input_shape, config)
     elif config['type'] == 'reshape':
         return _parse_reshape(input_shape, config)
+    elif config['type'] == 'slice':
+        return _parse_slice(input_shape, config)
     else:
         layer = _layer_map[config['type']](config)
         layer.build(input_shape)
