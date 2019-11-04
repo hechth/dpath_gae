@@ -155,6 +155,48 @@
                 "output":"code"
             },
             {
+                "name":"classifier",
+                "input": "code",
+                "layers":[
+                    {
+                        "type":"flatten"
+                    },
+                    {
+                        "type":"slice",
+                        "begin":[0],
+                        "size":[6]
+                    },
+                    {
+                        "type":"dense",
+                        "units":9,
+                        "activation":"tf.nn.sigmoid",
+                        "trainable": false
+                    }
+                ],
+                "output":"predictions_classifier"
+            },
+            {
+                "name":"discriminator",
+                "input": "code",
+                "layers":[
+                    {
+                        "type":"flatten"
+                    },
+                    {
+                        "type":"slice",
+                        "begin":[5],
+                        "size":[12]
+                    },
+                    {
+                        "type":"dense",
+                        "units":9,
+                        "activation":"tf.nn.sigmoid",
+                        "trainable": false
+                    }
+                ],
+                "output":"predictions_discriminator"
+            },
+            {
                 "name": "decoder",
                 "input":"code",
                 "layers": [
@@ -167,7 +209,8 @@
                         "filters": 32,
                         "kernel_size": [3,3],
                         "strides":[1,1],
-                        "transpose": true
+                        "transpose": true,
+                        "trainable":false
                     },
                     {
                         "type": "avg_unpool",
@@ -178,7 +221,8 @@
                         "filters": 32,
                         "kernel_size": [3,3],
                         "strides":[1,1],
-                        "transpose": true
+                        "transpose": true,
+                        "trainable":false
                     },
                     {
                         "type": "avg_unpool",
@@ -189,7 +233,8 @@
                         "filters": 32,
                         "kernel_size": [3,3],
                         "strides":[1,1],
-                        "transpose": true
+                        "transpose": true,
+                        "trainable":false
                     },
                     {
                         "type": "avg_unpool",
@@ -200,7 +245,8 @@
                         "filters": 32,
                         "kernel_size": [3,3],
                         "strides":[1,1],
-                        "transpose": true
+                        "transpose": true,
+                        "trainable":false
                     },
                     {
                         "type": "avg_unpool",
@@ -211,7 +257,8 @@
                         "filters": 3,
                         "kernel_size": [3,3],
                         "strides":[1,1],
-                        "transpose": true
+                        "transpose": true,
+                        "trainable":false
                     }
                 ],
                 "output":"logits"

@@ -22,13 +22,32 @@ def my_model(features, labels, mode, params, config):
 
     encoder = ctfm.parse_component(tensors, components['encoder'], tensors)
     sampler = ctfm.parse_component(tensors, components['sampler'], tensors)
+    classifier = ctfm.parse_component(tensors, components['classifier'], tensors)
+    discriminator = ctfm.parse_component(tensors, components['discriminator'], tensors)
     decoder = ctfm.parse_component(tensors, components['decoder'], tensors)
 
 
     optimizer = tf.train.AdagradOptimizer(learning_rate=0.01)
-    loss = tf.losses.absolute_difference(tensors['patch'], tensors['logits'])
+    
+     # Losses for discriminator and classifier
+    discriminator_loss = tf.losses.sparse_softmax_cross_entropy(labels=labels, logits=tensors['predictions_discriminator'])
+    classifier_loss = tf.losses.sparse_softmax_cross_entropy(labels=labels, logits=tensors['predictions_classifier'])
 
-    train_op = optimizer.minimize(loss, global_step=tf.train.get_global_step())
+    # get bVAE losses.
+    latent_loss = ctfm.latent_loss(sampler[0][0][0](tensors['encoded_patch']), tf.exp(sampler[0][0][1](tensors['encoded_patch'])))
+    reconstr_loss = tf.losses.absolute_difference(tensors['patch'], tensors['logits'])
+
+    # Combine reconstruction loss, latent loss, prediction loss and negative discriminator loss
+    loss = reconstr_loss + cfg['parameters']['beta'] * latent_loss + cfg['parameters']['alpha'] * classifier_loss - cfg['parameters']['delta'] * discriminator_loss
+
+    # Create training op
+    train_op_encoder = optimizer.minimize(loss, global_step=tf.train.get_global_step())
+    train_op_discriminator = optimizer.minimize(discriminator_loss, var_list=[discriminator[1]])
+    train_op_classifier = optimizer.minimize(classifier_loss, var_list=[classifier[1]])
+    train_op_decoder = optimizer.minimize(reconstr_loss, var_list=[decoder[1]])
+
+    train_op = tf.group([train_op_encoder,train_op_discriminator,train_op_classifier,train_op_decoder])
+
 
     if mode == tf.estimator.ModeKeys.EVAL:
         return tf.estimator.EstimatorSpec(mode, loss=loss, eval_metric_ops={'loss' : loss})

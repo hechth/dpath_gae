@@ -8,3 +8,5 @@ from .Layer import parse_layer
 from .Configuration import parse_component
 from .Configuration import parse_json
 from .Configuration import parse_inputs
+
+from .Losses import latent_loss
