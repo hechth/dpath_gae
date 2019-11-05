@@ -152,7 +152,7 @@
                         "name":"z"
                     }
                 ],
-                "output":"code"
+                "output":["mean","log_sigma_sq", "code"]
             },
             {
                 "name":"classifier",

@@ -14,8 +14,21 @@ import packages.Tensorflow.Dataset as ctfd
 def my_model(features, labels, mode, params, config):
     cfg = params['config']
 
-    tensors, labels = ctfm.parse_inputs(features, labels, cfg['inputs'])   
-    
+
+    # Get adaptive learning rate
+    learning_rate = tf.train.polynomial_decay(
+        learning_rate=1e-3,
+        end_learning_rate=1e-4,
+        global_step=tf.train.get_global_step(),
+        decay_steps=2e7
+    )
+
+    tensors, labels = ctfm.parse_inputs(features, labels, cfg['inputs'])
+
+    # --------------------------------------------------------
+    # Components
+    # --------------------------------------------------------
+
     components = {}
     for comp in cfg['components']:
         components[comp['name']] = comp
@@ -27,20 +40,25 @@ def my_model(features, labels, mode, params, config):
     decoder = ctfm.parse_component(tensors, components['decoder'], tensors)
 
 
-    optimizer = tf.train.AdagradOptimizer(learning_rate=0.01)
-    
-     # Losses for discriminator and classifier
+    # --------------------------------------------------------
+    # Losses
+    # --------------------------------------------------------
+        
+    latent_loss = ctfm.latent_loss(tensors['mean'], tensors['log_sigma_sq'])
+    reconstr_loss = tf.losses.absolute_difference(tensors['patch'], tensors['logits'])
     discriminator_loss = tf.losses.sparse_softmax_cross_entropy(labels=labels, logits=tensors['predictions_discriminator'])
     classifier_loss = tf.losses.sparse_softmax_cross_entropy(labels=labels, logits=tensors['predictions_classifier'])
 
-    # get bVAE losses.
-    latent_loss = ctfm.latent_loss(sampler[0][0][0](tensors['encoded_patch']), tf.exp(sampler[0][0][1](tensors['encoded_patch'])))
-    reconstr_loss = tf.losses.absolute_difference(tensors['patch'], tensors['logits'])
-
     # Combine reconstruction loss, latent loss, prediction loss and negative discriminator loss
-    loss = reconstr_loss + cfg['parameters']['beta'] * latent_loss + cfg['parameters']['alpha'] * classifier_loss - cfg['parameters']['delta'] * discriminator_loss
+    loss = reconstr_loss + cfg['parameters'].get('beta') * latent_loss + cfg['parameters'].get('alpha') * classifier_loss - cfg['parameters'].get('delta') * discriminator_loss
 
-    # Create training op
+
+    # --------------------------------------------------------
+    # Training
+    # --------------------------------------------------------
+
+    optimizer = tf.train.AdagradOptimizer(learning_rate=learning_rate)
+
     train_op_encoder = optimizer.minimize(loss, global_step=tf.train.get_global_step())
     train_op_discriminator = optimizer.minimize(discriminator_loss, var_list=[discriminator[1]])
     train_op_classifier = optimizer.minimize(classifier_loss, var_list=[classifier[1]])
@@ -49,11 +67,44 @@ def my_model(features, labels, mode, params, config):
     train_op = tf.group([train_op_encoder,train_op_discriminator,train_op_classifier,train_op_decoder])
 
 
+    # --------------------------------------------------------
+    # Summaries
+    # --------------------------------------------------------
+    
+    # Predictions from classifier and discriminator
+    predicted_classes_classifier = tf.argmax(tensors['predictions_classifier'], 1)
+    predicted_classes_discriminator = tf.argmax(tensors['predictions_discriminator'], 1)
+
+    classifier_accuracy = tf.metrics.accuracy(labels=labels, predictions=predicted_classes_classifier, name='acc_op_classifier')
+    discriminator_accuracy = tf.metrics.accuracy(labels=labels, predictions=predicted_classes_discriminator, name='acc_op_discriminator')
+
+    metrics = {
+      'classifier_accuracy': classifier_accuracy,
+      'discriminator_accuracy': discriminator_accuracy,
+    }
+
+    # Losses scalar summaries
+    tf.summary.scalar('reconstr_loss', reconstr_loss)
+    tf.summary.scalar('latent_loss', latent_loss)
+    tf.summary.scalar('classifier_loss', classifier_loss)
+    tf.summary.scalar('discriminator_loss', discriminator_loss)
+
+    # Image summaries of patch and reconstruction
+    tf.summary.image('images', tensors['patch'], 1)
+    tf.summary.image('reconstructions', tensors['logits'], 1)
+
+
     if mode == tf.estimator.ModeKeys.EVAL:
-        return tf.estimator.EstimatorSpec(mode, loss=loss, eval_metric_ops={'loss' : loss})
+        return tf.estimator.EstimatorSpec(mode, loss=loss, eval_metric_ops=metrics)
 
     assert mode == tf.estimator.ModeKeys.TRAIN   
     return tf.estimator.EstimatorSpec(mode, loss=loss, train_op=train_op)
+
+def _normalize_op(features):
+    patch = (features['patch'] / 128) - 1
+    features['patch'] = patch
+    return features
+
 
 def main(argv):
     parser = argparse.ArgumentParser(description='TODO')
@@ -62,11 +113,15 @@ def main(argv):
 
     config = ctfm.parse_json(os.path.join(git_root,'examples','models','gae','configuration.json'))
 
-    train_fn = ctfd.construct_train_fn(config['datasets'])
-    steps = int(config['datasets']['training']['size'] / config['datasets']['batch'])
+    config_datasets = config.get('datasets')
+    config_model = config.get('model')
+
+
+    train_fn = ctfd.construct_train_fn(config_datasets, operations=[_normalize_op])
+    steps = int(config_datasets.get('training').get('size') / config_datasets.get('batch'))
 
     params_dict = {
-        'config': config['model'],
+        'config': config_model,
         'model_dir': args.model_dir
     }
 
