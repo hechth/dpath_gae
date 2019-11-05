@@ -45,7 +45,9 @@ def my_model(features, labels, mode, params, config):
     # --------------------------------------------------------
         
     latent_loss = ctfm.latent_loss(tensors['mean'], tensors['log_sigma_sq'])
-    reconstr_loss = tf.losses.absolute_difference(tensors['patch'], tensors['logits'])
+    #reconstr_loss = tf.losses.absolute_difference(tensors['patch'], tensors['logits'])
+    reconstr_loss = tf.reduce_mean(tf.reduce_sum(tf.losses.absolute_difference(tensors['patch'], tensors['logits'], reduction=tf.losses.Reduction.NONE),axis=[1,2,3]))
+
     discriminator_loss = tf.losses.sparse_softmax_cross_entropy(labels=labels, logits=tensors['predictions_discriminator'])
     classifier_loss = tf.losses.sparse_softmax_cross_entropy(labels=labels, logits=tensors['predictions_classifier'])
 
@@ -82,6 +84,8 @@ def my_model(features, labels, mode, params, config):
       'classifier_accuracy': classifier_accuracy,
       'discriminator_accuracy': discriminator_accuracy,
     }
+    tf.summary.scalar('classifier_accuracy', classifier_accuracy[1])
+    tf.summary.scalar('discriminator_accuracy', discriminator_accuracy[1])
 
     # Losses scalar summaries
     tf.summary.scalar('reconstr_loss', reconstr_loss)
@@ -133,7 +137,7 @@ def main(argv):
       model_fn=my_model,
       model_dir=args.model_dir,
       params=params_dict,
-      config=tf.estimator.RunConfig(model_dir=args.model_dir, save_summary_steps=100, log_step_count_steps=100)
+      config=tf.estimator.RunConfig(model_dir=args.model_dir, save_summary_steps=1000, log_step_count_steps=1000)
     )
 
     classifier = classifier.train(input_fn=train_fn, steps=steps)
