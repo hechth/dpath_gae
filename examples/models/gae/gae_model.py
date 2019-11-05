@@ -100,9 +100,13 @@ def my_model(features, labels, mode, params, config):
     assert mode == tf.estimator.ModeKeys.TRAIN   
     return tf.estimator.EstimatorSpec(mode, loss=loss, train_op=train_op)
 
+mean = np.load("mean.npy")
+variance = np.load("variance.npy")
+stddev = [np.math.sqrt(x) for x in variance]
+
 def _normalize_op(features):
-    patch = (features['patch'] / 128) - 1
-    features['patch'] = patch
+    channels = [tf.expand_dims((features['patch'][:,:,channel] - mean[channel]) / stddev[channel],-1) for channel in range(3)]
+    features['patch'] = tf.concat(channels, 2)
     return features
 
 
