@@ -124,7 +124,7 @@ def construct_unzip_op():
 
     return unzip_example
 
-def construct_train_fn(config):
+def construct_train_fn(config, operations=[]):
     """
     Function to construct the training function based on the config.
 
@@ -146,7 +146,7 @@ def construct_train_fn(config):
     # Create unzip operation
     unzip_op = construct_unzip_op()
 
-    operations = [decode_op]
+    operations.insert(0, decode_op)
     if 'operations' in cfg_train_ds:
         for op in cfg_train_ds['operations']:
             operations.append(cutil.get_function(op['module'], op['name']))
@@ -181,3 +181,23 @@ def construct_train_fn(config):
         return dataset.repeat()
 
     return train_fn
+
+def estimate_mean_and_variance(dataset, num_samples, axes, feature) -> tuple:
+    """
+    Function to estimate the mean and variance of a feature using certain axes.
+
+    Parameters
+    ----------
+        dataset: tf.data.TFRecordDataset object
+        num_samples: int number of samples to use for estimation.
+        axes: array holding the axes to use for estimation.
+        feature: key identifying for which feature to estimate the normalization.
+
+    Returns
+    -------
+        tf.nn.moments(samples[feature], axes=axes)
+    """
+    dataset = dataset.shuffle(num_samples)
+    samples = tf.data.experimental.get_single_element(dataset.batch(num_samples))
+    
+    return tf.nn.moments(samples[feature], axes=axes)
