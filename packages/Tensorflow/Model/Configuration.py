@@ -1,4 +1,4 @@
-import sys, os, json
+import sys, os, json, collections
 import git
 git_root = git.Repo('.', search_parent_directories=True).working_tree_dir
 sys.path.append(git_root)
@@ -111,5 +111,11 @@ def parse_component(inputs:dict, config:dict, outputs: dict):
             funcs.append(function)
 
         function = cutil.concatenate_functions(funcs)
-        outputs[config['output']] = function(input_tensor)    
+        output_tensors = function(input_tensor)
+
+        if isinstance(config['output'], collections.Iterable) and isinstance(output_tensors, tuple):
+            for key, value in zip(config['output'], output_tensors):
+                 outputs.update({key : value})
+        else:
+            outputs.update({config['output'] : output_tensors})   
     return layers, variables, function

@@ -203,23 +203,33 @@ def _parse_sampler(input_shape, config):
         output_shape: shape of the output tensor
     """
     name = config.get('name')
-    mean = tf.layers.Dense(config['dims'],name=name + '_mean')
+    mean = tf.layers.Dense(
+        config['dims'],
+        name=name + '_mean',
+        activation=None,
+        kernel_initializer=tf.initializers.lecun_uniform(),
+        bias_initializer=tf.ones_initializer())
     mean.build(input_shape)
     
-    log_sigma_sq = mean = tf.layers.Dense(config['dims'],name=name + '_log_sigma_sq')
+    log_sigma_sq = tf.layers.Dense(
+        config['dims'],
+        name=name + '_log_sigma_sq',
+        activation=None,
+        kernel_initializer=tf.initializers.lecun_uniform(),
+        bias_initializer=tf.ones_initializer())
     log_sigma_sq.build(input_shape)
 
     sample_shape = mean.compute_output_shape(input_shape)
 
-    def sample(mean, log_sigma_sq):
+    def _sample(mean, log_sigma_sq):
         eps_shape = tf.shape(mean)
         eps = tf.random_normal( eps_shape, 0, 1, dtype=tf.float32 )
-        z = tf.add(mean, tf.multiply(tf.sqrt(tf.exp(log_sigma_sq)), eps), name=name)
-        return z
+        sample = tf.add(mean, tf.multiply(tf.sqrt(tf.exp(log_sigma_sq)), eps), name=name)
+        return mean, log_sigma_sq, sample
 
     layer = [mean, log_sigma_sq]
     variables = [mean.variables, log_sigma_sq.variables]
-    function = lambda x: sample(mean(x), log_sigma_sq(x))
+    function = lambda x: _sample(mean(x), log_sigma_sq(x))
     output_shape = sample_shape
 
     return layer, variables, function, output_shape
@@ -264,7 +274,7 @@ def _parse_slice(input_shape:list, config:dict):
         output_shape: tf.TensorShape holding output tensor shape
     """
     begin = config.get('begin')
-    begin.insert(0, -1)
+    begin.insert(0, 0)
 
     size = config.get('size')
     size.insert(0, -1)
