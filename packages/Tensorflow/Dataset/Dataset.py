@@ -197,7 +197,7 @@ def estimate_mean_and_variance(dataset, num_samples, axes, feature) -> tuple:
     -------
         tf.nn.moments(samples[feature], axes=axes)
     """
-    dataset = dataset.shuffle(num_samples)
+    dataset = dataset.shuffle(num_samples).take(num_samples)
     samples = tf.data.experimental.get_single_element(dataset.batch(num_samples))
     
     return tf.nn.moments(samples[feature], axes=axes)

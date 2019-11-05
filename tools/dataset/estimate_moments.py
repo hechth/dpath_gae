@@ -28,9 +28,12 @@ def main(argv):
     
     dataset = tf.data.TFRecordDataset(args.filename, num_parallel_reads=8)
 
-    decode_op = ctfd.construct_decode_op(ctfm.parse_json(args.config))
+    decode_op = ctfd.construct_decode_op(ctfm.parse_json(args.config).get('datasets').get('features'))
     dataset = dataset.map(decode_op)
     mean, variance = ctfd.estimate_mean_and_variance(dataset, args.num_samples, args.axes, args.feature)
+
+    print(mean.numpy())
+    print(variance.numpy())
 
     np.save(args.output[0], mean)
     np.save(args.output[1], variance)
