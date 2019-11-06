@@ -16,7 +16,8 @@ def my_model(features, labels, mode, params, config):
     cfg = params['config']
     cfg_inputs = cfg.get('inputs')
     cfg_labels = cfg_inputs.get('labels')
-
+    cfg_embeddings = cfg.get('embeddings')
+    cfg_embeddings.update({'model_dir': params['model_dir']})
 
     # Get adaptive learning rate
     learning_rate = tf.train.polynomial_decay(
@@ -108,12 +109,15 @@ def my_model(features, labels, mode, params, config):
     tf.summary.image('images', tensors['patch'], 1)
     tf.summary.image('reconstructions', tensors['logits'], 1)
 
+    embedding_hook = ctfb.EmbeddingSaverHook(tf.get_default_graph(), cfg_embeddings, tensors['code'].name, tensors['code'], tensors['patch'].name, labels.name, cfg_labels.get('names'))
+
+
 
     if mode == tf.estimator.ModeKeys.EVAL:
         return tf.estimator.EstimatorSpec(mode, loss=loss, eval_metric_ops=metrics)
 
     assert mode == tf.estimator.ModeKeys.TRAIN   
-    return tf.estimator.EstimatorSpec(mode, loss=loss, train_op=train_op)
+    return tf.estimator.EstimatorSpec(mode, loss=loss, train_op=train_op, training_hooks=[embedding_hook])
 
 mean = np.load("mean.npy")
 variance = np.load("variance.npy")

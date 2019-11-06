@@ -122,9 +122,9 @@ class EmbeddingSaverHook(tf.train.SessionRunHook):
     def __init__(self, graph, params, values_name, values, images_name, labels_name, captions):
         super(EmbeddingSaverHook, self).__init__()
 
-        self._classes = params['classes']
+        self._classes = captions
         self._model_dir = params['model_dir']
-        self._stain_code_size = params['stain_code']
+        self._stain_code_size = params['stain_code_size']
 
         self.var = None
 
