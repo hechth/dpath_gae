@@ -4,12 +4,11 @@ import itertools
 import tensorflow as tf
 import tfplot
 from tensorflow.contrib.tensorboard.plugins import projector
-import matplotlib
-import matplotlib.pyplot as plt
+from  matplotlib.figure import Figure
+import datetime
+import time
 import math
 import numpy as np
-from sklearn.metrics import confusion_matrix
-from sklearn.preprocessing import scale
 import os
 from PIL import Image
 
@@ -73,9 +72,9 @@ def plot_confusion_matrix(cm, label_names, title='Confusion matrix', tensor_name
     
     np.set_printoptions(precision=3)
 
-    def plot_func(cm):
-        fig = matplotlib.figure.Figure(figsize=(3.5, 3.5), dpi=320, facecolor='w', edgecolor='k')
-        #fig, ax = tfplot.subplots(figsize=(7, 7), dpi=320, facecolor='w', edgecolor='k')
+    def create_matplotlib_figure(cm):
+        fig = Figure(figsize=(3.5, 3.5), dpi=320, facecolor='w', edgecolor='k')
+        #fig, ax = tfplot.subplots(figsize=(3.5, 3.5), dpi=320, facecolor='w', edgecolor='k')
         ax = fig.add_subplot(1, 1, 1)
 
         im = ax.imshow(cm, cmap='Oranges')
@@ -105,46 +104,8 @@ def plot_confusion_matrix(cm, label_names, title='Confusion matrix', tensor_name
         fig.set_tight_layout(True)
         return fig
 
-    plot_op = tfplot.autowrap(plot_func)(cm)
+    plot_op = tfplot.autowrap(create_matplotlib_figure)(cm)
     return tf.summary.image(tensor_name, tf.expand_dims(plot_op, axis=0))
-
-def plot_conv2D_weights(weights, num_filters, layout, name=None, rgb=False):
-
-    def plot_func(images):        
-        fig = matplotlib.figure.Figure(figsize=(3.5, 3.5), dpi=320)  # width, height in inches
-
-        for i in range(num_filters):       
-            sub = fig.add_subplot(layout[0], layout[1], i+1)
-            sub.set_xticklabels([])
-            sub.set_yticklabels([])
-            if rgb == False:
-                sub.imshow(images[i,:,:], interpolation=None, cmap='gray')
-            else:
-                sub.imshow(images[i,:,:,:], interpolation=None)
-
-        #fig.set_tight_layout(True)
-        return fig
-
-    def rescale_image(x, target_min, target_max):
-        # x is your tensor
-        current_min = tf.reduce_min(x)
-        current_max = tf.reduce_max(x)
-        # scale to [0; 1]
-        x = (x - current_min) / (current_max - current_min)
-        # scale to [target_min; target_max]
-        x = x * (target_max - target_min) + target_min
-        return tf.where(tf.is_nan(x), x=tf.zeros_like(x), y=x)
-
-    images = tf.transpose(weights,perm=[3, 0, 1, 2])
-
-    #images = tf.map_fn(lambda x: rescale_image(x, 0, 1), images)
-    images = rescale_image(images, 0, 1)
-    if rgb == False:
-        images = tf.squeeze(tf.image.rgb_to_grayscale(images))
-
-    plot_op = tfplot.autowrap(plot_func)(images)
-    #summary = tfplot.figure.to_summary(plot_op, tag=tensor_name)
-    return tf.summary.image(name, tf.expand_dims(plot_op, axis=0))
 
 def get_weight_histogram_summary(name):
     return tf.summary.histogram(name + '_hist', tf.get_collection(tf.GraphKeys.VARIABLES, name)[0])
