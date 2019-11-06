@@ -4,6 +4,7 @@ import itertools
 import tensorflow as tf
 import tfplot
 from tensorflow.contrib.tensorboard.plugins import projector
+import matplotlib
 from  matplotlib.figure import Figure
 import datetime
 import time
@@ -92,15 +93,21 @@ def plot_confusion_matrix(cm, label_names, title='Confusion matrix', tensor_name
 
         ax.set_ylabel('True Label', fontsize=7)
         ax.set_yticks(tick_marks)
-        ax.set_yticklabels(classes, fontsize=4, va ='center')
+        c = ax.set_yticklabels(classes, fontsize=4, va='center')
         ax.yaxis.set_label_position('left')
         ax.yaxis.tick_left()
 
+        # Fix for matplotlib version 3.1.1
+        if matplotlib.__version__ == '3.1.1':
+            bottom, top = ax.get_ylim()
+            ax.set_ylim(bottom + 0.5, top - 0.5)
+        
+
         for i, j in itertools.product(range(cm.shape[0]), range(cm.shape[1])):
             if normalize == True:
-                ax.text(j, i, format(cm[i, j], '.3f'), horizontalalignment="center", fontsize=5, verticalalignment='center', color= "black")
+                ax.text(j, i, format(cm[i, j], '.3f'), horizontalalignment='center', fontsize=5, verticalalignment='center', color= 'black')
             else:
-                ax.text(j, i, format(cm[i, j], 'd'), horizontalalignment="center", fontsize=5, verticalalignment='center', color= "black")
+                ax.text(j, i, format(cm[i, j], 'd'), horizontalalignment='center', fontsize=5, verticalalignment='center', color= 'black')
         fig.set_tight_layout(True)
         return fig
 

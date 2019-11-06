@@ -4,7 +4,7 @@
             "filename": "/home/hecht/build/thesis/datasets/train_ds_40000000_32_0.tfrec",
             "size": 40000000,
             "steps":100000,
-            "epochs": 50
+            "epochs": 1
         },
         "batch":256,
         "features":[
