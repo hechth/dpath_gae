@@ -20,6 +20,31 @@ def avg_unpool2d(x, factor, name=None):
     x = tf.transpose(x[0], [3, 0, 1, 2], name=name)
     return x
 
+def max_unpool2d(x, name=None):
+    """
+    Taken from https://github.com/tensorpack/tensorpack/blob/master/tensorpack/models/pool.py#L66 and 
+    https://github.com/tensorflow/tensorflow/issues/2169.
+
+    Parameters
+    ----------
+        x: input tf.Tensor
+
+    Returns
+    -------
+        out: tf.Tensor with doubled spatial dimensions and filled with max entries.
+    """
+    out = tf.concat([x, tf.zeros_like(x)], 3)
+    out = tf.concat([out, tf.zeros_like(out)], 2)
+
+    sh = x.get_shape().as_list()
+    if None not in sh[1:]:
+        out_size = [-1, sh[1] * 2, sh[2] * 2, sh[3]]
+        return tf.reshape(out, out_size)
+    else:
+        shv = tf.shape(x)
+        ret = tf.reshape(out, tf.stack([-1, shv[1] * 2, shv[2] * 2, sh[3]]), name=name)
+        return ret
+
 
 def _parse_dense_layer(config: dict)-> tf.layers.Dense:
     """
@@ -140,6 +165,22 @@ def _parse_avgunpool_layer(config:dict):
     name=cutil.safe_get('name', config)
     factor=cutil.safe_get('factor', config)
     return lambda x: avg_unpool2d(x, factor, name=name)
+
+def _parse_maxunpool_layer(config:dict):
+    """
+    Function to create max_unpool2d layer.
+    This is a custom implementation.
+
+    Parameters
+    ----------    
+        dict: Optional Keys: 'name'
+
+    Returns
+    -------
+        lambda x: max_unpool2d(x, name=name)
+    """
+    name=cutil.safe_get('name', config)
+    return lambda x: max_unpool2d(x, name=name)
     
 def _parse_activation(config:dict):
     """
@@ -309,6 +350,11 @@ def parse_layer(input_shape:list, config:dict):
         layer = None
         variables = None
         function = _parse_avgunpool_layer(config)
+        output_shape = function(tf.placeholder(tf.float32, shape=input_shape)).get_shape()
+    elif config['type'] == 'max_unpool':
+        layer = None
+        variables = None
+        function = _parse_maxunpool_layer(config)
         output_shape = function(tf.placeholder(tf.float32, shape=input_shape)).get_shape()
     elif config['type'] == 'sampler':
         return _parse_sampler(input_shape, config)
