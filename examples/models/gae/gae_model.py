@@ -10,9 +10,12 @@ tf.logging.set_verbosity(tf.logging.INFO)
 import packages.Utility as cutil
 import packages.Tensorflow.Model as ctfm
 import packages.Tensorflow.Dataset as ctfd
+import packages.Tensorflow.Tensorboard as ctfb
 
 def my_model(features, labels, mode, params, config):
     cfg = params['config']
+    cfg_inputs = cfg.get('inputs')
+    cfg_labels = cfg_inputs.get('labels')
 
 
     # Get adaptive learning rate
@@ -23,7 +26,7 @@ def my_model(features, labels, mode, params, config):
         decay_steps=2e7
     )
 
-    tensors, labels = ctfm.parse_inputs(features, labels, cfg['inputs'])
+    tensors, labels = ctfm.parse_inputs(features, labels, cfg_inputs)
 
     # --------------------------------------------------------
     # Components
@@ -45,7 +48,6 @@ def my_model(features, labels, mode, params, config):
     # --------------------------------------------------------
         
     latent_loss = ctfm.latent_loss(tensors['mean'], tensors['log_sigma_sq'])
-    #reconstr_loss = tf.losses.absolute_difference(tensors['patch'], tensors['logits'])
     reconstr_loss = tf.reduce_mean(tf.reduce_sum(tf.losses.absolute_difference(tensors['patch'], tensors['logits'], reduction=tf.losses.Reduction.NONE),axis=[1,2,3]))
 
     discriminator_loss = tf.losses.sparse_softmax_cross_entropy(labels=labels, logits=tensors['predictions_discriminator'])
@@ -79,6 +81,7 @@ def my_model(features, labels, mode, params, config):
 
     classifier_accuracy = tf.metrics.accuracy(labels=labels, predictions=predicted_classes_classifier, name='acc_op_classifier')
     discriminator_accuracy = tf.metrics.accuracy(labels=labels, predictions=predicted_classes_discriminator, name='acc_op_discriminator')
+
 
     metrics = {
       'classifier_accuracy': classifier_accuracy,
