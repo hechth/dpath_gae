@@ -82,13 +82,21 @@ def my_model(features, labels, mode, params, config):
     classifier_accuracy = tf.metrics.accuracy(labels=labels, predictions=predicted_classes_classifier, name='acc_op_classifier')
     discriminator_accuracy = tf.metrics.accuracy(labels=labels, predictions=predicted_classes_discriminator, name='acc_op_discriminator')
 
+    classifier_confusion = ctfb.confusion_metric(labels, predicted_classes_classifier, cfg_labels.get('num_classes'),name='classifier')
+    discriminator_confusion = ctfb.confusion_metric(labels, predicted_classes_discriminator, cfg_labels.get('num_classes'),name='discriminator')
 
     metrics = {
-      'classifier_accuracy': classifier_accuracy,
-      'discriminator_accuracy': discriminator_accuracy,
+        'classifier_confusion': classifier_confusion,
+        'classifier_accuracy': classifier_accuracy,
+        'discriminator_confusion': discriminator_confusion,
+        'discriminator_accuracy': discriminator_accuracy
     }
+
     tf.summary.scalar('classifier_accuracy', classifier_accuracy[1])
+    ctfb.plot_confusion_matrix(classifier_confusion[1],cfg_labels.get('names'),tensor_name='confusion_matrix_classifier', normalize=True)
+    
     tf.summary.scalar('discriminator_accuracy', discriminator_accuracy[1])
+    ctfb.plot_confusion_matrix(discriminator_confusion[1], cfg_labels.get('names'),tensor_name='confusion_matrix_discriminator', normalize=True)
 
     # Losses scalar summaries
     tf.summary.scalar('reconstr_loss', reconstr_loss)
