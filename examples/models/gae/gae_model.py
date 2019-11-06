@@ -140,7 +140,8 @@ def main(argv):
       config=tf.estimator.RunConfig(model_dir=args.model_dir, save_summary_steps=1000, log_step_count_steps=1000)
     )
 
-    classifier = classifier.train(input_fn=train_fn, steps=steps)
+    for epoch in range(config_datasets.get('training').get('epochs')):
+        classifier = classifier.train(input_fn=train_fn, steps=steps)
 
 if __name__ == "__main__":
     main(sys.argv[1:])
