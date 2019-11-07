@@ -1,9 +1,12 @@
 import sys, os, json
 import git
+import uuid
 git_root = git.Repo('.', search_parent_directories=True).working_tree_dir
 sys.path.append(git_root)
 
 import tensorflow as tf
+
+from tensorflow.contrib.slim.nets import resnet_v2
 
 import packages.Utility as cutil
 
@@ -61,7 +64,8 @@ def _parse_dense_layer(config: dict)-> tf.layers.Dense:
     layer: tf.layers.Dense with specified configuration.
     """
     activation = cutil.safe_get('activation', config)
-    kernel_initializer = cutil.safe_get('kernel_initializer', config)
+    kernel_initializer = config.get('kernel_initializer', tf.initializers.lecun_uniform())
+    bias_initializer = config.get('bias_initializer', tf.ones_initializer())
     name = cutil.safe_get('name',config)
     trainable = cutil.safe_get('trainable', config)
 
@@ -69,11 +73,12 @@ def _parse_dense_layer(config: dict)-> tf.layers.Dense:
         config['units'],
         activation=activation,
         kernel_initializer=kernel_initializer,
+        bias_initializer=bias_initializer,
         name=name,
         trainable=trainable)
     return layer
 
-def _parse_conv_layer(config):
+def _parse_conv_layer(config:dict):
     """
     Function to build convolutional 2d layer with specific config.
     Pass 'transpose': True in config to create deconvolution layer.
@@ -93,17 +98,18 @@ def _parse_conv_layer(config):
     kernel_size = cutil.safe_get('kernel_size',config)
     name = cutil.safe_get('name',config)
     activation = cutil.safe_get('activation', config)
-    kernel_initializer = cutil.safe_get('kernel_initializer', config)
-    bias_initializer = cutil.safe_get('bias_initializer', config)
+    kernel_initializer = config.get('kernel_initializer', tf.initializers.lecun_uniform())
+    bias_initializer = config.get('bias_initializer', tf.ones_initializer())
     trainable = cutil.safe_get('trainable', config)
     transpose = cutil.safe_get('transpose', config)
+    padding = config.get('padding', 'same')
 
     if transpose is not None and transpose == True:
         layer = tf.layers.Conv2DTranspose(
             filters,
             kernel_size,
             strides,
-            padding='same',
+            padding=padding,
             name=name,
             kernel_initializer=kernel_initializer,
             bias_initializer=bias_initializer,
@@ -114,7 +120,7 @@ def _parse_conv_layer(config):
             filters,
             kernel_size,
             strides,
-            padding='same',
+            padding=padding,
             name=name,
             kernel_initializer=kernel_initializer,
             bias_initializer=bias_initializer,
@@ -324,6 +330,24 @@ def _parse_slice(input_shape:list, config:dict):
     output_shape = function(tf.placeholder(tf.float32, shape=input_shape)).get_shape()
     return None, None, function, output_shape
 
+def _parse_resnet_v2_block(input_shape:list, config:dict):
+    """
+    Function to parse resnet preactivation bottleneck unit.
+    """
+    scope_name = config.get('scope', str(uuid.uuid4()))
+    scope = tf.VariableScope(scope_name)
+    base_depth = config.get('base_depth')
+    num_units = config.get('num_units')
+    stride = config.get('stride')
+
+    block = resnet_v2.resnet_v2_block(scope, base_depth, num_units, stride)
+    args = block.args[0]
+    function = lambda x: block[1](x, args.get('depth'), args.get('depth_bottleneck'), args.get('stride'))
+    output_shape = function(tf.placeholder(tf.float32, shape=input_shape)).get_shape()
+    variables = scope.trainable_variables()
+
+    return None, variables, function, output_shape
+
 def parse_layer(input_shape:list, config:dict):
     """
     Function which parses a layer or activation or avg_unpool operation specified in a layer config.
@@ -362,6 +386,8 @@ def parse_layer(input_shape:list, config:dict):
         return _parse_reshape(input_shape, config)
     elif config['type'] == 'slice':
         return _parse_slice(input_shape, config)
+    elif config['type'] == 'resnet_v2_block':
+        return _parse_resnet_v2_block(input_shape, config)   
     else:
         layer = _layer_map[config['type']](config)
         layer.build(input_shape)

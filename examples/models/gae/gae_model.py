@@ -1,4 +1,4 @@
-import sys, os, json, argparse
+import sys, os, json, argparse, shutil
 import git
 git_root = git.Repo('.', search_parent_directories=True).working_tree_dir
 sys.path.append(git_root)
@@ -134,7 +134,8 @@ def main(argv):
     parser.add_argument('model_dir',type=str,help='Path to saved model to use for inference.')
     args = parser.parse_args()
 
-    config = ctfm.parse_json(os.path.join(git_root,'examples','models','gae','configuration.json'))
+    config_path = os.path.join(git_root,'examples','models','gae','configuration.json')
+    config = ctfm.parse_json(config_path)
 
     config_datasets = config.get('datasets')
     config_model = config.get('model')
@@ -154,6 +155,9 @@ def main(argv):
       params=params_dict,
       config=tf.estimator.RunConfig(model_dir=args.model_dir, save_summary_steps=1000, log_step_count_steps=1000)
     )
+
+    if not os.path.exists(os.path.join(args.model_dir, os.path.basename(config_path))):
+        shutil.copy2(config_path, args.model_dir)
 
     for epoch in range(config_datasets.get('training').get('epochs')):
         classifier = classifier.train(input_fn=train_fn, steps=steps)

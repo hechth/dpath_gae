@@ -48,10 +48,10 @@
                 "input": "patch",
                 "layers": [
                     {
-                        "type":"conv",
-                        "filters": 32,
-                        "kernel_size": [3,3],
-                        "strides":[1,1]
+                        "type":"resnet_v2_block",
+                        "stride":1,
+                        "base_depth":12,
+                        "num_units": 1
                     },
                     {
                         "type":"batch_norm",
@@ -60,12 +60,36 @@
                     {
                         "type":"activation",
                         "function":"tf.nn.relu"
+                    },                    
+                    {
+                        "type":"max_pool",
+                        "pool_size":[2,2],
+                        "strides":[2,2]
                     },
                     {
-                        "type":"conv",
-                        "filters": 32,
-                        "kernel_size": [3,3],
-                        "strides":[1,1]
+                        "type":"resnet_v2_block",
+                        "stride":1,
+                        "base_depth":12,
+                        "num_units": 1
+                    },
+                    {
+                        "type":"batch_norm",
+                        "axis": [1,2,3]
+                    },
+                    {
+                        "type":"activation",
+                        "function":"tf.nn.relu"
+                    },                   
+                    {
+                        "type":"max_pool",
+                        "pool_size":[2,2],
+                        "strides":[2,2]
+                    },
+                    {
+                        "type":"resnet_v2_block",
+                        "stride":1,
+                        "base_depth":12,
+                        "num_units": 1
                     },
                     {
                         "type":"batch_norm",
@@ -81,24 +105,10 @@
                         "strides":[2,2]
                     },
                     {
-                        "type":"conv",
-                        "filters": 32,
-                        "kernel_size": [3,3],
-                        "strides":[1,1]
-                    },
-                    {
-                        "type":"batch_norm",
-                        "axis": [1,2,3]
-                    },
-                    {
-                        "type":"activation",
-                        "function":"tf.nn.relu"
-                    },
-                    {
-                        "type":"conv",
-                        "filters": 32,
-                        "kernel_size": [3,3],
-                        "strides":[1,1]
+                        "type":"resnet_v2_block",
+                        "stride":1,
+                        "base_depth":12,
+                        "num_units": 1
                     },
                     {
                         "type":"batch_norm",
@@ -114,62 +124,10 @@
                         "strides":[2,2]
                     },
                     {
-                        "type":"conv",
-                        "filters": 32,
-                        "kernel_size": [3,3],
-                        "strides":[1,1]
-                    },
-                    {
-                        "type":"batch_norm",
-                        "axis": [1,2,3]
-                    },
-                    {
-                        "type":"activation",
-                        "function":"tf.nn.relu"
-                    },
-                    {
-                        "type":"max_pool",
-                        "pool_size":[2,2],
-                        "strides":[2,2]
-                    },
-                    {
-                        "type":"conv",
-                        "filters": 32,
-                        "kernel_size": [3,3],
-                        "strides":[1,1]
-                    },
-                    {
-                        "type":"batch_norm",
-                        "axis": [1,2,3]
-                    },
-                    {
-                        "type":"activation",
-                        "function":"tf.nn.relu"
-                    },
-                    {
-                        "type":"max_pool",
-                        "pool_size":[2,2],
-                        "strides":[2,2]
-                    },
-                    {
-                        "type":"conv",
-                        "filters": 32,
-                        "kernel_size": [3,3],
-                        "strides":[1,1]
-                    },
-                    {
-                        "type":"batch_norm",
-                        "axis": [1,2,3]
-                    },
-                    {
-                        "type":"activation",
-                        "function":"tf.nn.relu"
-                    },
-                    {
-                        "type":"conv",
-                        "filters": 32,
-                        "kernel_size": [3,3],
-                        "strides":[1,1]
+                        "type":"resnet_v2_block",
+                        "stride":1,
+                        "base_depth":12,
+                        "num_units": 1
                     },
                     {
                         "type":"batch_norm",
@@ -244,14 +202,12 @@
             {
                 "name": "decoder",
                 "input":"code",
-                "layers": [
-                    {
-                        "type": "max_unpool"
-                    },
+                "layers": [                    
                     {
                         "type":"conv",
                         "filters": 32,
-                        "kernel_size": [3,3],
+                        "padding": "valid",
+                        "kernel_size": [2,2],
                         "strides":[1,1],
                         "transpose": true,
                         "trainable":false
@@ -267,65 +223,7 @@
                     {
                         "type":"conv",
                         "filters": 32,
-                        "kernel_size": [3,3],
-                        "strides":[1,1],
-                        "transpose": true,
-                        "trainable":false
-                    },
-                    {
-                        "type":"batch_norm",
-                        "axis": [1,2,3]
-                    },
-                    {
-                        "type":"activation",
-                        "function":"tf.nn.relu"
-                    },
-                    {
-                        "type": "max_unpool"
-                    },
-                    {
-                        "type":"conv",
-                        "filters": 32,
-                        "kernel_size": [3,3],
-                        "strides":[1,1],
-                        "transpose": true,
-                        "trainable":false
-                    },
-                    {
-                        "type":"batch_norm",
-                        "axis": [1,2,3]
-                    },
-                    {
-                        "type":"activation",
-                        "function":"tf.nn.relu"
-                    },
-                    {
-                        "type": "avg_unpool",
-                        "factor": 2
-                    },
-                    {
-                        "type":"conv",
-                        "filters": 32,
-                        "kernel_size": [3,3],
-                        "strides":[1,1],
-                        "transpose": true,
-                        "trainable":false
-                    },
-                    {
-                        "type":"batch_norm",
-                        "axis": [1,2,3]
-                    },
-                    {
-                        "type":"activation",
-                        "function":"tf.nn.relu"
-                    },
-                    {
-                        "type": "avg_unpool",
-                        "factor": 2
-                    },
-                    {
-                        "type":"conv",
-                        "filters": 32,
+                        "padding": "valid",
                         "kernel_size": [3,3],
                         "strides":[1,1],
                         "transpose": true,
@@ -357,7 +255,47 @@
                     },
                     {
                         "type": "avg_unpool",
-                        "factor": 2
+                        "factor":2
+                    },
+                    {
+                        "type":"conv",
+                        "filters": 32,
+                        "kernel_size": [3,3],
+                        "strides":[1,1],
+                        "transpose": true,
+                        "trainable":false
+                    },
+                    {
+                        "type":"batch_norm",
+                        "axis": [1,2,3]
+                    },
+                    {
+                        "type":"activation",
+                        "function":"tf.nn.relu"
+                    },
+                    {
+                        "type": "avg_unpool",
+                        "factor":2
+                    },                    
+                    {
+                        "type":"conv",
+                        "filters": 32,
+                        "kernel_size": [3,3],
+                        "strides":[1,1],
+                        "transpose": true,
+                        "trainable":false
+                    },
+                    {
+                        "type":"batch_norm",
+                        "axis": [1,2,3]
+                    },
+                    {
+                        "type":"activation",
+                        "function":"tf.nn.relu"
+                    },
+                    {
+                        "type": "avg_unpool",
+                        "factor":2
                     },
                     {
                         "type":"conv",
@@ -378,7 +316,7 @@
                     {
                         "type":"conv",
                         "filters": 3,
-                        "kernel_size": [3,3],
+                        "kernel_size": [1,1],
                         "strides":[1,1],
                         "transpose": true,
                         "trainable":false
