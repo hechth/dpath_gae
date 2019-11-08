@@ -348,7 +348,7 @@ def _parse_resnet_v2_block(shape:list, config:dict):
         output_shape: shape of the block output.
     """
     scope_name = config.get('scope', str(uuid.uuid4()))
-    scope = tf.VariableScope(scope_name)
+    scope = tf.VariableScope(tf.AUTO_REUSE,name=scope_name)
     base_depth = config.get('base_depth')
     num_units = config.get('num_units')
     stride = config.get('stride')
@@ -357,9 +357,9 @@ def _parse_resnet_v2_block(shape:list, config:dict):
     args = block.args[0]
 
     layers = None
-    variables = scope.trainable_variables()
     function = lambda x: block[1](x, args.get('depth'), args.get('depth_bottleneck'), args.get('stride'))
     output_shape = function(tf.placeholder(tf.float32, shape=shape)).get_shape()
+    variables = scope.trainable_variables()
 
     return layers, variables, function, output_shape
 
