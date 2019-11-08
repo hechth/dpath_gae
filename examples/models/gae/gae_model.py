@@ -162,5 +162,13 @@ def main(argv):
     for epoch in range(config_datasets.get('training').get('epochs')):
         classifier = classifier.train(input_fn=train_fn, steps=steps)
 
+    export_dir = os.path.join(args.model_dir, 'saved_model')
+    cutil.mkdir_if_not_exists(export_dir)
+
+    # TODO: Write command to create serving input receiver fn from config.
+    serving_input_receiver_fn = None
+
+    classifier.export_saved_model(export_dir, serving_input_receiver_fn)
+
 if __name__ == "__main__":
     main(sys.argv[1:])
