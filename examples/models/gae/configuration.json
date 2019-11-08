@@ -55,7 +55,7 @@
                     },
                     {
                         "type":"batch_norm",
-                        "axis": [1,2,3]
+                        "axis": [-1]
                     },
                     {
                         "type":"activation",
@@ -74,7 +74,7 @@
                     },
                     {
                         "type":"batch_norm",
-                        "axis": [1,2,3]
+                        "axis": [-1]
                     },
                     {
                         "type":"activation",
@@ -93,7 +93,7 @@
                     },
                     {
                         "type":"batch_norm",
-                        "axis": [1,2,3]
+                        "axis": [-1]
                     },
                     {
                         "type":"activation",
@@ -112,7 +112,7 @@
                     },
                     {
                         "type":"batch_norm",
-                        "axis": [1,2,3]
+                        "axis": [-1]
                     },
                     {
                         "type":"activation",
@@ -131,7 +131,7 @@
                     },
                     {
                         "type":"batch_norm",
-                        "axis": [1,2,3]
+                        "axis": [-1]
                     },
                     {
                         "type":"activation",
@@ -214,7 +214,7 @@
                     },
                     {
                         "type":"batch_norm",
-                        "axis": [1,2,3]
+                        "axis": [-1]
                     },
                     {
                         "type":"activation",
@@ -231,7 +231,7 @@
                     },
                     {
                         "type":"batch_norm",
-                        "axis": [1,2,3]
+                        "axis": [-1]
                     },
                     {
                         "type":"activation",
@@ -247,7 +247,7 @@
                     },
                     {
                         "type":"batch_norm",
-                        "axis": [1,2,3]
+                        "axis": [-1]
                     },
                     {
                         "type":"activation",
@@ -267,7 +267,7 @@
                     },
                     {
                         "type":"batch_norm",
-                        "axis": [1,2,3]
+                        "axis": [-1]
                     },
                     {
                         "type":"activation",
@@ -287,7 +287,7 @@
                     },
                     {
                         "type":"batch_norm",
-                        "axis": [1,2,3]
+                        "axis": [-1]
                     },
                     {
                         "type":"activation",
@@ -307,7 +307,7 @@
                     },
                     {
                         "type":"batch_norm",
-                        "axis": [1,2,3]
+                        "axis": [-1]
                     },
                     {
                         "type":"activation",
