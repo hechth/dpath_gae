@@ -45,6 +45,20 @@ def parse_json(filename: str) -> dict:
     return cfg
        
 def parse_inputs(features:dict, labels:tf.Tensor, config: dict) -> [dict, tf.Tensor]:
+    """
+    Parses input description from config and returns reshaped input tensors with their key as dict and the correctly shaped labels.
+
+    Parameters
+    ----------
+        features: dict mapping the input features with their 'key' to the tf.Tensor values as passed to model function of estimator.
+        labels: tf.Tensor holding the labels.
+        config: dict holding 'features' dict and 'labels' dict, each holding the 'key', 'dtype' and 'shape' info of the feature or label.
+
+    Returns
+    -------
+        inputs: dict mapping all features with their 'key' to correctly shaped and batched tf.Tensor values.
+        labels: tf.Tensor holding labels with correct shape.
+    """
     inputs = {}
     cfg_features = config['features']
     for cfg_input in cfg_features:
@@ -92,15 +106,14 @@ def parse_component(inputs:dict, config:dict, outputs: dict):
 
     function: callable which performs a forward pass of features through the network.
     """
-    layers = list()
-    variables = list()    
-    funcs = list()
-
-    # Get input shape for following layers
-    input_tensor = inputs[config['input']]
-    shape = input_tensor.get_shape()
 
     with tf.name_scope(config['name']) as scope:
+        layers = list()
+        variables = list()    
+        funcs = list()
+
+        # Get input shape for following layers
+        shape = inputs[config['input']].get_shape()
         # Parse each layer specified in layers and append them to collections.
         for desc in config['layers']:
             layer,variable,function, shape = parse_layer(shape, desc)
@@ -111,7 +124,7 @@ def parse_component(inputs:dict, config:dict, outputs: dict):
             funcs.append(function)
 
         function = cutil.concatenate_functions(funcs)
-        output_tensors = function(input_tensor)
+        output_tensors = function(inputs[config['input']])
 
         if isinstance(config['output'], collections.Iterable) and isinstance(output_tensors, tuple):
             for key, value in zip(config['output'], output_tensors):

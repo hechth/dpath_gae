@@ -330,9 +330,22 @@ def _parse_slice(input_shape:list, config:dict):
     output_shape = function(tf.placeholder(tf.float32, shape=input_shape)).get_shape()
     return None, None, function, output_shape
 
-def _parse_resnet_v2_block(input_shape:list, config:dict):
+def _parse_resnet_v2_block(shape:list, config:dict):
     """
-    Function to parse resnet preactivation bottleneck unit.
+    Function to parse resnet_v2_block which creates a preactivation bottleneck unit.
+    Documentation can be found here: https://github.com/tensorflow/models/blob/master/research/slim/nets/resnet_v2.py
+
+    Parameters
+    ----------
+        shape: list holding the shape of expected input.
+        config: dict describing the block, holding 'base_depth', 'num_units' and 'stride' keys. Optional: 'scope'
+
+    Returns
+    -------
+        layers: None
+        variables: All trainable variables associated with the scope.
+        function: lambda x: block[1](x, args.get('depth'), args.get('depth_bottleneck'), args.get('stride'))
+        output_shape: shape of the block output.
     """
     scope_name = config.get('scope', str(uuid.uuid4()))
     scope = tf.VariableScope(scope_name)
@@ -342,11 +355,13 @@ def _parse_resnet_v2_block(input_shape:list, config:dict):
 
     block = resnet_v2.resnet_v2_block(scope, base_depth, num_units, stride)
     args = block.args[0]
-    function = lambda x: block[1](x, args.get('depth'), args.get('depth_bottleneck'), args.get('stride'))
-    output_shape = function(tf.placeholder(tf.float32, shape=input_shape)).get_shape()
-    variables = scope.trainable_variables()
 
-    return None, variables, function, output_shape
+    layers = None
+    variables = scope.trainable_variables()
+    function = lambda x: block[1](x, args.get('depth'), args.get('depth_bottleneck'), args.get('stride'))
+    output_shape = function(tf.placeholder(tf.float32, shape=shape)).get_shape()
+
+    return layers, variables, function, output_shape
 
 def parse_layer(input_shape:list, config:dict):
     """
