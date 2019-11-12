@@ -43,6 +43,13 @@ def my_model(features, labels, mode, params, config):
     discriminator = ctfm.parse_component(tensors, components['discriminator'], tensors)
     decoder = ctfm.parse_component(tensors, components['decoder'], tensors)
 
+    if mode == tf.estimator.ModeKeys.PREDICT:
+        predictions = {
+            'code': tensors['code'],
+            'logits': tensors['logits']
+        }
+        return tf.estimator.EstimatorSpec(mode, predictions=predictions)
+
 
     # --------------------------------------------------------
     # Losses
@@ -134,6 +141,9 @@ def main(argv):
     parser.add_argument('model_dir',type=str,help='Path to saved model to use for inference.')
     args = parser.parse_args()
 
+    cutil.make_directory(args.model_dir)
+    cutil.publish(args.model_dir)
+
     config_path = os.path.join(git_root,'examples','models','gae','configuration.json')
     config = ctfm.parse_json(config_path)
 
@@ -163,12 +173,17 @@ def main(argv):
         classifier = classifier.train(input_fn=train_fn, steps=steps)
 
     export_dir = os.path.join(args.model_dir, 'saved_model')
-    cutil.mkdir_if_not_exists(export_dir)
+    cutil.make_directory(export_dir)
+    cutil.publish(export_dir)
 
     # TODO: Write command to create serving input receiver fn from config.
-    serving_input_receiver_fn = None
+    serving_input_receiver_fn = ctfd.construct_serving_fn(config_model['inputs'])
 
     classifier.export_saved_model(export_dir, serving_input_receiver_fn)
+    cutil.publish(args.model_dir)
+    cutil.publish(export_dir)
+
+
 
 if __name__ == "__main__":
     main(sys.argv[1:])
