@@ -42,7 +42,7 @@ def main(argv):
 
     step = tf.Variable(tf.zeros([], dtype=tf.float32))    
 
-    X, Y = np.mgrid[0:1024:12j, 0:1024:12j]
+    X, Y = np.mgrid[0:1024:16j, 0:1024:16j]
     positions = np.transpose(np.vstack([X.ravel(), Y.ravel()]))
     positions = tf.expand_dims(tf.convert_to_tensor(positions, dtype=tf.float32),0)
 
@@ -59,8 +59,8 @@ def main(argv):
         regularization_weight=0.01
     )
 
-    image_patches = normalize(ctfi.extract_patches(image[0], 32, strides=[1,16,16,1]))
-    warped_patches = normalize(ctfi.extract_patches(warped_image[0], 32, strides=[1,16,16,1]))
+    image_patches = normalize(ctfi.extract_patches(image[0], 32, strides=[1,32,32,1]))
+    warped_patches = normalize(ctfi.extract_patches(warped_image[0], 32, strides=[1,32,32,1]))
 
     with tf.Session(graph=tf.get_default_graph()).as_default() as sess:
         g = tf.Graph()       
@@ -68,10 +68,10 @@ def main(argv):
 
         fetch_ops = ['z:0','init']
         fetch_ops.extend([v.name.strip(":0") + "/Assign" for v in g.get_collection(tf.GraphKeys.GLOBAL_VARIABLES)])
-
+                
         image_graph = tf.graph_util.import_graph_def(g.as_graph_def(), input_map={'patch:0': image_patches}, return_elements=fetch_ops, name='')
         warped_graph = tf.graph_util.import_graph_def(g.as_graph_def(),input_map={'patch:0': warped_patches}, return_elements=fetch_ops, name='')
-
+        
         sess.run(image_graph[1:])
         sess.run(warped_graph[1:])
 
