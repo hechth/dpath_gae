@@ -3,6 +3,8 @@ import git
 git_root = git.Repo('.', search_parent_directories=True).working_tree_dir
 sys.path.append(git_root)
 
+import numpy as np
+
 from psutil import virtual_memory
 from objsize import get_deep_size
 
@@ -181,6 +183,26 @@ def construct_train_fn(config, operations=[]):
         return dataset.repeat()
 
     return train_fn
+
+def construct_serving_fn(config):
+
+    def serving_input_receiver_fn():
+        """Serving input function that builds features from config
+        
+        Returns
+        -------
+            tf.estimator.export.ServingInputReceiver
+        """
+
+        mapping = {}
+        for feature in config['features']:
+            shape = np.copy(feature['shape']).tolist()
+            shape.insert(0, None)
+            placeholder = tf.placeholder(dtype=feature['dtype'], shape=shape, name=feature['key'])
+            mapping[feature['key']] = placeholder
+        return tf.estimator.export.ServingInputReceiver(mapping, mapping)
+
+    return serving_input_receiver_fn
 
 def estimate_mean_and_variance(dataset, num_samples, axes, feature) -> tuple:
     """
