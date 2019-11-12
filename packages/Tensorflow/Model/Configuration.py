@@ -3,6 +3,8 @@ import git
 git_root = git.Repo('.', search_parent_directories=True).working_tree_dir
 sys.path.append(git_root)
 
+import numpy as np
+
 import tensorflow as tf
 
 from packages.Tensorflow import tf_datatypes
@@ -63,19 +65,21 @@ def parse_inputs(features:dict, labels:tf.Tensor, config: dict) -> [dict, tf.Ten
     cfg_features = config['features']
     for cfg_input in cfg_features:
 
-        input_shape= cfg_input['shape']
+        input_shape = np.copy(cfg_input['shape']).tolist()
         key = cfg_input['key']
         dtype = cfg_input['dtype']
-        inputs_name = cutil.safe_get('name', cfg_input)
 
         feature_column = parse_feature(cfg_input)
         
         input_shape.insert(0,-1)
-        inputs[key] = tf.reshape(tf.feature_column.input_layer(features, feature_column), input_shape)
 
-    labels_shape = config['labels']['shape']
-    labels_shape.insert(0,-1)
-    labels = tf.reshape(labels, labels_shape)
+        input_layer = tf.feature_column.input_layer(features, feature_column)
+        inputs[key] = tf.reshape(input_layer, input_shape, name=key)
+
+    if labels is not None:
+        labels_shape = np.copy(config['labels']['shape']).tolist()
+        labels_shape.insert(0,-1)
+        labels = tf.reshape(labels, labels_shape)
     return inputs, labels
 
 
@@ -106,29 +110,28 @@ def parse_component(inputs:dict, config:dict, outputs: dict):
 
     function: callable which performs a forward pass of features through the network.
     """
+   
+    layers = list()
+    variables = list()    
+    funcs = list()
 
-    with tf.name_scope(config['name']) as scope:
-        layers = list()
-        variables = list()    
-        funcs = list()
+    # Get input shape for following layers
+    shape = inputs[config['input']].get_shape()
+    # Parse each layer specified in layers and append them to collections.
+    for desc in config['layers']:
+        layer,variable,function, shape = parse_layer(shape, desc)
+        if layer is not None:
+            layers.append(layer)
+        if variable is not None:
+            variables.append(variable)
+        funcs.append(function)
 
-        # Get input shape for following layers
-        shape = inputs[config['input']].get_shape()
-        # Parse each layer specified in layers and append them to collections.
-        for desc in config['layers']:
-            layer,variable,function, shape = parse_layer(shape, desc)
-            if layer is not None:
-                layers.append(layer)
-            if variable is not None:
-                variables.append(variable)
-            funcs.append(function)
+    function = cutil.concatenate_functions(funcs)
+    output_tensors = function(inputs[config['input']])
 
-        function = cutil.concatenate_functions(funcs)
-        output_tensors = function(inputs[config['input']])
-
-        if isinstance(config['output'], collections.Iterable) and isinstance(output_tensors, tuple):
-            for key, value in zip(config['output'], output_tensors):
-                 outputs.update({key : value})
-        else:
-            outputs.update({config['output'] : output_tensors})   
+    if isinstance(config['output'], collections.Iterable) and isinstance(output_tensors, tuple):
+        for key, value in zip(config['output'], output_tensors):
+            outputs.update({key :value})
+    else:
+        outputs.update({config['output'] : output_tensors})   
     return layers, variables, function
