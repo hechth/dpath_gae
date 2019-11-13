@@ -77,7 +77,7 @@ def main(argv):
 
         image_code = tf.constant(sess.run(image_graph[0]))
 
-        loss = tf.reduce_sum(tf.math.squared_difference(image_code, warped_graph[0]))
+        loss = tf.reduce_sum(tf.math.squared_difference(image_code[:,:,:,6:], warped_graph[0][:,:,:,6:]))
         #loss = tf.reduce_sum(tf.math.squared_difference(image, warped_image))
 
         optimizer =  tf.train.GradientDescentOptimizer(learning_rate=0.001)
