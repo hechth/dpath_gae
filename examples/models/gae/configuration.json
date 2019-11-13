@@ -37,9 +37,9 @@
             }
         },
         "parameters": {
-            "beta": 5,
-            "alpha": 1,
-            "delta": 1,
+            "beta": 6,
+            "alpha": 2,
+            "delta": 4,
             "stain_code_size":6
         },
         "components": [      
@@ -55,7 +55,7 @@
                     },
                     {
                         "type":"batch_norm",
-                        "axis": [-1]
+                        "axis": [1,2,3]
                     },
                     {
                         "type":"activation",
@@ -74,7 +74,7 @@
                     },
                     {
                         "type":"batch_norm",
-                        "axis": [-1]
+                        "axis": [1,2,3]
                     },
                     {
                         "type":"activation",
@@ -93,7 +93,7 @@
                     },
                     {
                         "type":"batch_norm",
-                        "axis": [-1]
+                        "axis": [1,2,3]
                     },
                     {
                         "type":"activation",
@@ -112,7 +112,7 @@
                     },
                     {
                         "type":"batch_norm",
-                        "axis": [-1]
+                        "axis": [1,2,3]
                     },
                     {
                         "type":"activation",
@@ -131,7 +131,7 @@
                     },
                     {
                         "type":"batch_norm",
-                        "axis": [-1]
+                        "axis": [1,2,3]
                     },
                     {
                         "type":"activation",
@@ -151,7 +151,7 @@
                 "layers": [
                     {
                         "type":"sampler",
-                        "dims":18,
+                        "dims":20,
                         "name":"z"
                     }
                 ],
@@ -167,7 +167,8 @@
                     {
                         "type":"slice",
                         "begin":[0],
-                        "size":[6]
+                        "size":[6],
+                        "name:":"z_stain"
                     },
                     {
                         "type":"dense",
@@ -187,8 +188,9 @@
                     },
                     {
                         "type":"slice",
-                        "begin":[5],
-                        "size":[12]
+                        "begin":[6],
+                        "size":[14],
+                        "name:":"z_structure"
                     },
                     {
                         "type":"dense",
@@ -214,7 +216,7 @@
                     },
                     {
                         "type":"batch_norm",
-                        "axis": [-1]
+                        "axis": [1,2,3]
                     },
                     {
                         "type":"activation",
@@ -231,7 +233,7 @@
                     },
                     {
                         "type":"batch_norm",
-                        "axis": [-1]
+                        "axis": [1,2,3]
                     },
                     {
                         "type":"activation",
@@ -247,7 +249,7 @@
                     },
                     {
                         "type":"batch_norm",
-                        "axis": [-1]
+                        "axis": [1,2,3]
                     },
                     {
                         "type":"activation",
@@ -267,7 +269,7 @@
                     },
                     {
                         "type":"batch_norm",
-                        "axis": [-1]
+                        "axis": [1,2,3]
                     },
                     {
                         "type":"activation",
@@ -287,7 +289,7 @@
                     },
                     {
                         "type":"batch_norm",
-                        "axis": [-1]
+                        "axis": [1,2,3]
                     },
                     {
                         "type":"activation",
@@ -307,7 +309,7 @@
                     },
                     {
                         "type":"batch_norm",
-                        "axis": [-1]
+                        "axis": [1,2,3]
                     },
                     {
                         "type":"activation",

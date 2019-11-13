@@ -39,6 +39,8 @@ def rescale(image, new_min, new_max):
     -------
     image:  Image with intensity values between new_min and new_max and same shape.
     """
+    #result = (image - image.min()) / (image.max() - image.min()) * (new_max - new_min) + new_min
+    #return result
     return np.interp(image, (image.min(), image.max()), (new_min, new_max))
 
 def extract_patches(
@@ -78,8 +80,9 @@ def extract_patches(
     )
 
     patches = tf.expand_dims(patches, 0)
-    num_patches = [int(image.shape.as_list()[0] / patch_size), int(image.shape.as_list()[1] / patch_size)]
-
+    #num_patches = [int(image.shape.as_list()[0] / patch_size), int(image.shape.as_list()[1] / patch_size)]
+    num_patches = [patches.shape.as_list()[2], patches.shape.as_list()[3]]
+    
     # Change grid layout of [1, channels, x, y, pixels] to [patches, channels, 1, 1, pixels]
     patches = tf.space_to_batch_nd(
       patches,

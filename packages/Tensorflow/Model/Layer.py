@@ -326,7 +326,7 @@ def _parse_slice(input_shape:list, config:dict):
     size = config.get('size')
     size.insert(0, -1)
 
-    function = lambda x: tf.slice(x, begin, size, name=config.get('name'))
+    function = lambda x: tf.Tensor(tf.slice(x, begin, size, name=config.get('name')),0, x.dtype)
     output_shape = function(tf.placeholder(tf.float32, shape=input_shape)).get_shape()
     return None, None, function, output_shape
 
