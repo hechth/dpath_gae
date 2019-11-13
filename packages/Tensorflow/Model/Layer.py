@@ -301,7 +301,7 @@ def _parse_reshape(input_shape, config):
     new_shape.insert(0, -1)
     name = config.get('name')
 
-    function = lambda x: tf.reshape(x, new_shape)
+    function = lambda x: tf.reshape(x, new_shape, name=name)
     return None, None, function, new_shape
 
 def _parse_slice(input_shape:list, config:dict):
