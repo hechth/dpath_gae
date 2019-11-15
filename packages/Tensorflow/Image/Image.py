@@ -91,7 +91,7 @@ def extract_patches(
     )
 
     # Squeeze [patches, channels, 1, 1, pixels] to [patches, channels, pixels]
-    patches = tf.squeeze(patches)
+    patches = tf.squeeze(patches, axis=[2,3])
 
     # Change shape to channels last: [patches, channels, pixels] to [patches, pixels, channels]
     patches = tf.transpose(patches, perm=[0,2,1])
