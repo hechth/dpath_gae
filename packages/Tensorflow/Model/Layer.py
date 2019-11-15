@@ -417,6 +417,8 @@ def parse_layer(input_shape:list, config:dict):
         return _parse_slice(input_shape, config)
     elif config['type'] == 'resnet_v2_block':
         return _parse_resnet_v2_block(input_shape, config)   
+    elif config['type'] == 'concatenate':
+        return _parse_concatenate(input_shape, config)
     else:
         layer = _layer_map[config['type']](config)
         layer.build(input_shape)
