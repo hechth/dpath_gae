@@ -33,17 +33,17 @@ def main(argv):
 
     args = parser.parse_args()
 
-    filename = os.path.join(git_root,'data','images','tile_8_14.jpeg')
-    image = tf.expand_dims(ctfi.load(filename, width=1024, height=1024, channels=3),0)
+    filename = os.path.join(git_root,'data','images','encoder_input.png')
+    image = tf.expand_dims(ctfi.load(filename, width=32, height=32, channels=3),0)
 
-    true_angle = tf.Variable(initial_value=0.05 * math.pi, dtype=tf.float32, name='true_angle')  
+    true_angle = tf.Variable(initial_value=-0.05 * math.pi, dtype=tf.float32, name='true_angle')  
 
     image_rotated = tf.Variable(image)
     image_rotated = tf.contrib.image.rotate(image_rotated, true_angle, interpolation='BILINEAR')
 
     step = tf.Variable(tf.zeros([], dtype=tf.float32))    
 
-    X, Y = np.mgrid[16:1024-16:16j, 16:1024-16:16j]
+    X, Y = np.mgrid[4:32-4:8j, 4:32-4:8j]
     positions = np.transpose(np.vstack([X.ravel(), Y.ravel()]))
     positions = tf.expand_dims(tf.convert_to_tensor(positions, dtype=tf.float32),0)
 
@@ -58,20 +58,20 @@ def main(argv):
         name='sparse_image_warp',
         interpolation_order=2,
         #regularization_weight=0.005,
-        num_boundary_points=2
+        #num_boundary_points=1
     )
 
     image_patches = normalize(ctfi.extract_patches(image[0], 32, strides=[1,32,32,1]))
     warped_patches = normalize(ctfi.extract_patches(warped_image[0], 32, strides=[1,32,32,1]))
 
-    learning_rate = 0.005
+    learning_rate = 0.001
 
     with tf.Session(graph=tf.get_default_graph()).as_default() as sess:
 
         g = tf.Graph()       
         saved_model = predictor.from_saved_model(args.export_dir, graph=g)
 
-        fetch_ops = ['z:0','init']
+        fetch_ops = ['max_pooling2d_4/MaxPool:0','init']
         fetch_ops.extend([v.name.strip(":0") + "/Assign" for v in g.get_collection(tf.GraphKeys.GLOBAL_VARIABLES)])
                 
         image_graph = tf.graph_util.import_graph_def(g.as_graph_def(), input_map={'patch:0': image_patches}, return_elements=fetch_ops, name='')
@@ -81,16 +81,19 @@ def main(argv):
         sess.run(warped_graph[1:])
 
         image_code = tf.constant(sess.run(image_graph[0]))
+        warped_code = warped_graph[0]
 
-        #loss = tf.reduce_sum(tf.math.squared_difference(image_code[:,:,:,6:], warped_graph[0][:,:,:,6:]))
-        loss = tf.reduce_sum(tf.math.squared_difference(image, warped_image))
+        loss = tf.reduce_sum(tf.math.squared_difference(image_code, warped_code))
+        #loss = tf.reduce_sum(tf.sqrt(tf.math.squared_difference(image_code, warped_code)))
+        #loss = tf.reduce_sum(tf.math.squared_difference(image, warped_image))
 
         optimizer =  tf.train.GradientDescentOptimizer(learning_rate=learning_rate)
-        compute_gradients = optimizer.compute_gradients(loss,var_list=[source_control_point_locations])
-        apply_gradients = optimizer.apply_gradients(compute_gradients, global_step=step)
+
+        compute_gradients_source = optimizer.compute_gradients(loss,var_list=[source_control_point_locations])
+        apply_gradients_source = optimizer.apply_gradients(compute_gradients_source, global_step=step)
 
         sess.run(tf.global_variables_initializer())
-
+        sess.run(tf.local_variables_initializer())
 
         fig, ax = plt.subplots(2,3)
         ax[0,0].imshow(ctfi.rescale(image.eval(session=sess)[0], 0.0, 1.0))
@@ -152,14 +155,14 @@ def main(argv):
         fig.canvas.flush_events()
         plt.show()
 
-        iterations = 200
+        iterations = 100000
         while step.value().eval(session=sess) < iterations:
-            gradients = sess.run(compute_gradients)
             step_val = int(step.value().eval(session=sess))
-            sess.run(apply_gradients)
 
+            gradients = sess.run(compute_gradients_source)
+            sess.run(apply_gradients_source)
 
-            if step_val % 1 == 0 or step_val == iterations - 1 :
+            if step_val % 1000 == 0 or step_val == iterations - 1 :
                 loss_val = loss.eval(session=sess)
                 grad_mean_source = np.mean(gradients[0][0])
                 
@@ -172,7 +175,9 @@ def main(argv):
                 diff_warp_rotated = tf.abs(image_rotated - warped_image).eval(session=sess)
                 diff_image_warp = tf.abs(image - warped_image).eval(session=sess)
 
-                print("{0:d}\t{1:.4f}\t{2:.4f}\t{3:.4f}\t{4:.4f}\t{5:.4f}\t{6:.4f}".format(step_val, loss_val, grad_mean_source, grad_mean_dest, np.mean(flow_field), np.sum(diff_warp_rotated), np.sum(diff_image_warp)))
+                warped_code_eval = np.mean(warped_code.eval(session=sess))
+
+                print("{0:d}\t{1:.4f}\t{2:.4f}\t{3:.4f}\t{4:.4f}\t{5:.4f}\t{6:.4f}\t{7:.4f}".format(step_val, loss_val, warped_code_eval, grad_mean_source, grad_mean_dest, np.mean(flow_field), np.sum(diff_warp_rotated), np.sum(diff_image_warp)))
 
                 plot_warped.set_data(ctfi.rescale(warped_image.eval(session=sess)[0], 0., 1.))
                 plot_diff_image.set_data(ctfi.rescale(diff_image_warp[0], 0., 1.))
@@ -188,7 +193,7 @@ def main(argv):
                 plot_scatter_dest.set_data(dest_points[:,0], dest_points[:,1])
 
                 source_gradients = np.squeeze(gradients[0][0])
-                #dest_gradients = gradients[1][0][0]
+                #dest_gradients = np.squeeze(gradients_dest[0][0])
 
                 plot_source_grad.remove()
                 plot_source_grad = ax[0,1].quiver(
