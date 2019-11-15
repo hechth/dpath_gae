@@ -281,6 +281,20 @@ def _parse_sampler(input_shape, config):
 
     return layer, variables, function, output_shape
 
+def _parse_concatenate(input_shape, config):
+    name = config.get('name')
+
+    graph = tf.get_default_graph()
+
+    inputs = [graph.get_tensor_by_name(x+ ':0') for x in config['inputs']]
+
+    layer = None
+    variables = None
+    concatenated = tf.concat(inputs, -1, name='name')
+    function = lambda x: concatenated
+    output_shape = concatenated.get_shape()
+    return layer, variables, function, output_shape
+
 def _parse_reshape(input_shape, config):
     """
     Parse reshape operation specification to create reshape operation in model.

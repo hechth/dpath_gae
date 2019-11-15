@@ -158,8 +158,8 @@
                 "output":["mean","log_sigma_sq", "code"]
             },
             {
-                "name":"classifier",
-                "input": "code",
+                "name":"stain_extractor",
+                "input":"code",
                 "layers":[
                     {
                         "type":"flatten"
@@ -167,9 +167,15 @@
                     {
                         "type":"slice",
                         "begin":[0],
-                        "size":[9],
-                        "name:":"z_stain"
-                    },
+                        "size":[9]
+                    }
+                ],
+                "output":"stain_code"
+            },
+            {
+                "name":"classifier",
+                "input": "stain_code",
+                "layers":[
                     {
                         "type":"dense",
                         "units":9,
@@ -180,8 +186,8 @@
                 "output":"predictions_classifier"
             },
             {
-                "name":"discriminator",
-                "input": "code",
+                "name":"structure_extractor",
+                "input":"code",
                 "layers":[
                     {
                         "type":"flatten"
@@ -189,9 +195,16 @@
                     {
                         "type":"slice",
                         "begin":[9],
-                        "size":[31],
-                        "name:":"z_structure"
-                    },
+                        "size":[31]
+                    }
+                ],
+                "output":"structure_code"
+            },
+            {
+                "name":"discriminator",
+                "input": "structure_code",
+                "layers":[
+                    
                     {
                         "type":"dense",
                         "units":9,
@@ -202,8 +215,8 @@
                 "output":"predictions_discriminator"
             },
             {
-                "name": "decoder",
-                "input":"code",
+                "name": "decoder_stain",
+                "input":"stain_code",
                 "layers": [                    
                     {
                         "type":"conv",
@@ -317,14 +330,148 @@
                     },
                     {
                         "type":"conv",
-                        "filters": 3,
+                        "filters": 1,
                         "kernel_size": [1,1],
                         "strides":[1,1],
                         "transpose": true,
                         "trainable":false
                     }
                 ],
-                "output":"logits"
+                "output":"stain_image"
+            },
+            {
+                "name": "decoder_structure",
+                "input":"structure_code",
+                "layers": [                    
+                    {
+                        "type":"conv",
+                        "filters": 32,
+                        "padding": "valid",
+                        "kernel_size": [2,2],
+                        "strides":[1,1],
+                        "transpose": true,
+                        "trainable":false
+                    },
+                    {
+                        "type":"batch_norm",
+                        "axis": [1,2,3]
+                    },
+                    {
+                        "type":"activation",
+                        "function":"tf.nn.relu"
+                    },
+                    {
+                        "type":"conv",
+                        "filters": 32,
+                        "padding": "valid",
+                        "kernel_size": [3,3],
+                        "strides":[1,1],
+                        "transpose": true,
+                        "trainable":false
+                    },
+                    {
+                        "type":"batch_norm",
+                        "axis": [1,2,3]
+                    },
+                    {
+                        "type":"activation",
+                        "function":"tf.nn.relu"
+                    },
+                    {
+                        "type":"conv",
+                        "filters": 32,
+                        "kernel_size": [3,3],
+                        "strides":[1,1],
+                        "transpose": true,
+                        "trainable":false
+                    },
+                    {
+                        "type":"batch_norm",
+                        "axis": [1,2,3]
+                    },
+                    {
+                        "type":"activation",
+                        "function":"tf.nn.relu"
+                    },
+                    {
+                        "type": "avg_unpool",
+                        "factor":2
+                    },
+                    {
+                        "type":"conv",
+                        "filters": 32,
+                        "kernel_size": [3,3],
+                        "strides":[1,1],
+                        "transpose": true,
+                        "trainable":false
+                    },
+                    {
+                        "type":"batch_norm",
+                        "axis": [1,2,3]
+                    },
+                    {
+                        "type":"activation",
+                        "function":"tf.nn.relu"
+                    },
+                    {
+                        "type": "avg_unpool",
+                        "factor":2
+                    },                    
+                    {
+                        "type":"conv",
+                        "filters": 32,
+                        "kernel_size": [3,3],
+                        "strides":[1,1],
+                        "transpose": true,
+                        "trainable":false
+                    },
+                    {
+                        "type":"batch_norm",
+                        "axis": [1,2,3]
+                    },
+                    {
+                        "type":"activation",
+                        "function":"tf.nn.relu"
+                    },
+                    {
+                        "type": "avg_unpool",
+                        "factor":2
+                    },
+                    {
+                        "type":"conv",
+                        "filters": 32,
+                        "kernel_size": [3,3],
+                        "strides":[1,1],
+                        "transpose": true,
+                        "trainable":false
+                    },
+                    {
+                        "type":"batch_norm",
+                        "axis": [1,2,3]
+                    },
+                    {
+                        "type":"activation",
+                        "function":"tf.nn.relu"
+                    },
+                    {
+                        "type":"conv",
+                        "filters": 1,
+                        "kernel_size": [1,1],
+                        "strides":[1,1],
+                        "transpose": true,
+                        "trainable":false
+                    }
+                ],
+                "output":"structure_image"
+            },
+            {
+                "name":"merger",
+                "input":"",
+                "layers":[
+                    {
+                        
+                    }
+                ]
             }
         ],
         "embeddings": {

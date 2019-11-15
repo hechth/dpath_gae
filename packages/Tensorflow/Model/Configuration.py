@@ -131,7 +131,7 @@ def parse_component(inputs:dict, config:dict, outputs: dict):
 
     if isinstance(config['output'], collections.Iterable) and isinstance(output_tensors, tuple):
         for key, value in zip(config['output'], output_tensors):
-            outputs.update({key :value})
+            outputs.update({key : tf.identity(value, name=key)})
     else:
-        outputs.update({config['output'] : output_tensors})   
+        outputs.update({config['output'] : tf.identity(output_tensors, name=config['output'])})   
     return layers, variables, function

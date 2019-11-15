@@ -85,8 +85,8 @@ def main(argv):
         g = tf.Graph()       
         saved_model = predictor.from_saved_model(args.export_dir, graph=g)
 
-        #fetch_ops = ['max_pooling2d_4/MaxPool:0','init']
-        fetch_ops = ['z:0','init']
+        fetch_ops = ['max_pooling2d_4/MaxPool:0','init']
+        #fetch_ops = ['z:0','init']
         fetch_ops.extend([v.name.strip(":0") + "/Assign" for v in g.get_collection(tf.GraphKeys.GLOBAL_VARIABLES)])
                 
         warped_target_graph = tf.graph_util.import_graph_def(g.as_graph_def(), input_map={'patch:0': warped_target_patches}, return_elements=fetch_ops, name='')

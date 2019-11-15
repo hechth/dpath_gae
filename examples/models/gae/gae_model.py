@@ -35,13 +35,13 @@ def my_model(features, labels, mode, params, config):
 
     components = {}
     for comp in cfg['components']:
-        components[comp['name']] = comp
+        components[comp['name']] = ctfm.parse_component(tensors, comp, tensors)
 
-    encoder = ctfm.parse_component(tensors, components['encoder'], tensors)
-    sampler = ctfm.parse_component(tensors, components['sampler'], tensors)
-    classifier = ctfm.parse_component(tensors, components['classifier'], tensors)
-    discriminator = ctfm.parse_component(tensors, components['discriminator'], tensors)
-    decoder = ctfm.parse_component(tensors, components['decoder'], tensors)
+    #encoder = ctfm.parse_component(tensors, components['encoder'], tensors)
+    #sampler = ctfm.parse_component(tensors, components['sampler'], tensors)
+    #classifier = ctfm.parse_component(tensors, components['classifier'], tensors)
+    #discriminator = ctfm.parse_component(tensors, components['discriminator'], tensors)
+    #decoder = ctfm.parse_component(tensors, components['decoder'], tensors)
 
     if mode == tf.estimator.ModeKeys.PREDICT:
         predictions = {
@@ -72,9 +72,9 @@ def my_model(features, labels, mode, params, config):
     optimizer = tf.train.AdagradOptimizer(learning_rate=learning_rate)
 
     train_op_encoder = optimizer.minimize(loss, global_step=tf.train.get_global_step())
-    train_op_discriminator = optimizer.minimize(discriminator_loss, var_list=[discriminator[1]])
-    train_op_classifier = optimizer.minimize(classifier_loss, var_list=[classifier[1]])
-    train_op_decoder = optimizer.minimize(reconstr_loss, var_list=[decoder[1]])
+    train_op_discriminator = optimizer.minimize(discriminator_loss, var_list=[components['discriminator'][1]])
+    train_op_classifier = optimizer.minimize(classifier_loss, var_list=[components['classifier'][1]])
+    train_op_decoder = optimizer.minimize(reconstr_loss, var_list=[components['decoder'][1]])
 
     train_op = tf.group([train_op_encoder,train_op_discriminator,train_op_classifier,train_op_decoder])
 
@@ -144,7 +144,7 @@ def main(argv):
     cutil.make_directory(args.model_dir)
     cutil.publish(args.model_dir)
 
-    config_path = os.path.join(git_root,'examples','models','gae','configuration.json')
+    config_path = os.path.join(git_root,'examples','models','gae','configuration_v2.json')
     config = ctfm.parse_json(config_path)
 
     config_datasets = config.get('datasets')
