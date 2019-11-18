@@ -74,7 +74,8 @@ def my_model(features, labels, mode, params, config):
     train_op_encoder = optimizer.minimize(loss, global_step=tf.train.get_global_step())
     train_op_discriminator = optimizer.minimize(discriminator_loss, var_list=[components['discriminator'][1]])
     train_op_classifier = optimizer.minimize(classifier_loss, var_list=[components['classifier'][1]])
-    train_op_decoder = optimizer.minimize(reconstr_loss, var_list=[components['decoder'][1]])
+    decoder_variables = components['decoder_stain'][1] + components['decoder_structure'][1] + components['merger'][1]
+    train_op_decoder = optimizer.minimize(reconstr_loss, var_list=decoder_variables)
 
     train_op = tf.group([train_op_encoder,train_op_discriminator,train_op_classifier,train_op_decoder])
 
@@ -126,15 +127,6 @@ def my_model(features, labels, mode, params, config):
     assert mode == tf.estimator.ModeKeys.TRAIN   
     return tf.estimator.EstimatorSpec(mode, loss=loss, train_op=train_op, training_hooks=[embedding_hook])
 
-mean = np.load("mean.npy")
-variance = np.load("variance.npy")
-stddev = [np.math.sqrt(x) for x in variance]
-
-def _normalize_op(features):
-    channels = [tf.expand_dims((features['patch'][:,:,channel] - mean[channel]) / stddev[channel],-1) for channel in range(3)]
-    features['patch'] = tf.concat(channels, 2)
-    return features
-
 
 def main(argv):
     parser = argparse.ArgumentParser(description='TODO')
@@ -151,7 +143,12 @@ def main(argv):
     config_model = config.get('model')
 
 
-    train_fn = ctfd.construct_train_fn(config_datasets, operations=[_normalize_op])
+    #train_fn = ctfd.construct_train_fn(config_datasets, operations=[_normalize_op])
+    def train_fn():
+        dataset = tf.data.Dataset.from_tensor_slices(np.random.rand(256,32,32,3))
+        dataset = dataset.map(lambda x : ({"patch": x}, 0)).batch(256).repeat()
+        return dataset
+        
     steps = int(config_datasets.get('training').get('size') / config_datasets.get('batch'))
 
     params_dict = {

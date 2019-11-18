@@ -1,4 +1,4 @@
-import sys, os, json
+import sys, os, json, itertools
 import git
 import uuid
 git_root = git.Repo('.', search_parent_directories=True).working_tree_dir
@@ -290,7 +290,7 @@ def _parse_concatenate(input_shape, config):
 
     layer = None
     variables = None
-    concatenated = tf.concat(inputs, -1, name='name')
+    concatenated = tf.concat(inputs, -1, name=name)
     function = lambda x: concatenated
     output_shape = concatenated.get_shape()
     return layer, variables, function, output_shape
@@ -311,12 +311,19 @@ def _parse_reshape(input_shape, config):
         function: function which reshapes the input
         output_shape: shape of the output tensor
     """
-    new_shape = config.get('shape')
-    new_shape.insert(0, -1)
+    shape_cfg = config.get('shape')
     name = config.get('name')
 
-    function = lambda x: tf.reshape(x, new_shape, name=name)
-    return None, None, function, new_shape
+    def _reshape(x):
+        dynamic_shape = tf.shape(x)
+        shape = list.copy(shape_cfg)
+        shape.insert(0, dynamic_shape[0])
+        return tf.reshape(x, shape=shape, name=name)
+
+    function = _reshape
+    output_shape = function(tf.placeholder(tf.float32, shape=input_shape)).get_shape()
+
+    return None, None, function, output_shape
 
 def _parse_slice(input_shape:list, config:dict):
     """

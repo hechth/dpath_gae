@@ -116,7 +116,11 @@ def parse_component(inputs:dict, config:dict, outputs: dict):
     funcs = list()
 
     # Get input shape for following layers
-    shape = inputs[config['input']].get_shape()
+    if type(config['input']) != list:
+        shape = inputs[config['input']].get_shape()
+    else:
+        shape = [inputs[key].get_shape() for key in config['input']]
+    
     # Parse each layer specified in layers and append them to collections.
     for desc in config['layers']:
         layer,variable,function, shape = parse_layer(shape, desc)
