@@ -281,6 +281,65 @@ def _parse_sampler(input_shape, config):
 
     return layer, variables, function, output_shape
 
+def _parse_sampler_v2(input_shape, config):
+    """
+    Function to create a sampling layer of specified dimensionality. In contrast to the basic version, this uses a full covariance matrix for sampling and doesn't assume independence between the variables.
+
+    Parameters
+    ----------
+        input_shape: shape of the input data as list of tf.TensorShape
+        config: dict holding configuration of the sampling layer.
+
+    Returns
+    -------
+        layer: list of tf.layers.Layer holding the mean and log_sigma_sq layer.
+        variables: list of variables associated with both layers.
+        function: function which produces sample from input using the mean and log_sigma_sq layers
+        output_shape: shape of the output tensor
+    """
+    name = config.get('name')
+    dims = config.get('dims')
+
+    mean = tf.layers.Dense(
+        dims,
+        name=name + '_mean',
+        activation=None,
+        kernel_initializer=tf.initializers.lecun_uniform(),
+        bias_initializer=tf.ones_initializer())
+    mean.build(input_shape)
+
+    output_shape = mean.compute_output_shape(input_shape)
+
+    
+    cov = tf.layers.Dense(
+        (dims * (dims+1))/2,
+        name=name + '_covariance_root',
+        activation=tf.math.sigmoid,
+        kernel_initializer=tf.initializers.lecun_uniform(),
+        bias_initializer=tf.ones_initializer())
+
+    cov.build(input_shape)
+    cov_shape = cov.compute_output_shape(input_shape)
+    new_shape = cov_shape.as_list()[:-1]
+    new_shape.extend([dims,dims])    
+    
+    def _sample(x):
+        mean_activation = mean(x)        
+        x_cov_tril = tf.contrib.distributions.fill_triangular(cov(x), name=name + '_covariance')        
+
+        dist = tf.contrib.distributions.MultivariateNormalTriL(loc=mean_activation, scale_tril=x_cov_tril,name='x_dist')
+        sample = dist.sample()
+        return dist, sample
+
+    layer = [mean, cov]
+    variables = [mean.variables, cov.variables]
+    
+    function = lambda x: _sample(x)
+
+    return layer, variables, function, output_shape
+
+    
+
 def _parse_concatenate(input_shape, config):
     name = config.get('name')
 
@@ -418,6 +477,8 @@ def parse_layer(input_shape:list, config:dict):
         output_shape = function(tf.placeholder(tf.float32, shape=input_shape)).get_shape()
     elif config['type'] == 'sampler':
         return _parse_sampler(input_shape, config)
+    elif config['type'] == 'sampler_v2':
+        return _parse_sampler_v2(input_shape, config)
     elif config['type'] == 'reshape':
         return _parse_reshape(input_shape, config)
     elif config['type'] == 'slice':
