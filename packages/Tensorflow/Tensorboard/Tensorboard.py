@@ -154,9 +154,9 @@ class EmbeddingSaverHook(tf.train.SessionRunHook):
         self._emb_stain_placeholder = tf.placeholder(tf.float32, name='emb_stain_placeholder')
         self._emb_structure_placeholder = tf.placeholder(tf.float32, name='emb_structure_placeholder')
 
-        self._embedding_var = tf.Variable(tf.zeros([self._num_sprites, values.shape[3]], dtype=tf.float32), name='emb_values')
+        self._embedding_var = tf.Variable(tf.zeros([self._num_sprites, values.shape[1]], dtype=tf.float32), name='emb_values')
         self._embedding_var_stain = tf.Variable(tf.zeros([self._num_sprites, self._stain_code_size], dtype=tf.float32), name='emb_stain')
-        self._embedding_var_structure = tf.Variable(tf.zeros([self._num_sprites, values.shape[3] - self._stain_code_size], dtype=tf.float32), name='emb_structure')
+        self._embedding_var_structure = tf.Variable(tf.zeros([self._num_sprites, values.shape[1] - self._stain_code_size], dtype=tf.float32), name='emb_structure')
         
         self._assign_op_var = self._embedding_var.assign(self._emb_values_placeholder,read_value=False)
         self._assign_op_stain = self._embedding_var_stain.assign(self._emb_stain_placeholder,read_value=False)

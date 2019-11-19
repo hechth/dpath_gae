@@ -37,10 +37,11 @@
             }
         },
         "parameters": {
-            "beta": 10,
+            "beta": 6,
             "alpha": 2,
             "delta": 4,
-            "stain_code_size":9
+            "stain_code_size":9,
+            "latent_space_size":18
         },
         "components": [      
             {
@@ -141,6 +142,9 @@
                         "type":"max_pool",
                         "pool_size":[2,2],
                         "strides":[2,2]
+                    },
+                    {
+                        "type":"flatten"
                     }
                 ],
                 "output":"encoded_patch"
@@ -150,12 +154,12 @@
                 "input":"encoded_patch",
                 "layers": [
                     {
-                        "type":"sampler",
-                        "dims":40,
+                        "type":"sampler_v2",
+                        "dims":18,
                         "name":"z"
                     }
                 ],
-                "output":["mean","log_sigma_sq", "code"]
+                "output":["distribution", "code"]
             },
             {
                 "name":"classifier",
@@ -167,7 +171,7 @@
                     {
                         "type":"slice",
                         "begin":[0],
-                        "size":[9],
+                        "size":[6],
                         "name:":"z_stain"
                     },
                     {
@@ -188,8 +192,8 @@
                     },
                     {
                         "type":"slice",
-                        "begin":[9],
-                        "size":[31],
+                        "begin":[6],
+                        "size":[12],
                         "name:":"z_structure"
                     },
                     {
@@ -204,7 +208,11 @@
             {
                 "name": "decoder",
                 "input":"code",
-                "layers": [                    
+                "layers": [
+                    {
+                        "type":"reshape",
+                        "shape":[1,1,18]
+                    },                    
                     {
                         "type":"conv",
                         "filters": 32,

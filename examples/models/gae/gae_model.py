@@ -55,7 +55,15 @@ def my_model(features, labels, mode, params, config):
     # Losses
     # --------------------------------------------------------
         
-    latent_loss = ctfm.latent_loss(tensors['mean'], tensors['log_sigma_sq'])
+    #latent_loss = ctfm.latent_loss(tensors['mean'], tensors['log_sigma_sq'])
+    
+    mvn_uniform = tf.contrib.distributions.MultivariateNormalDiag(
+    loc=tf.zeros([tf.shape(tensors['code'])[0], cfg['parameters'].get('latent_space_size')]),
+    scale_diag=tf.ones([tf.shape(tensors['code'])[0], cfg['parameters'].get('latent_space_size')]))
+
+    latent_loss = tf.reduce_mean(tensors['distribution'].kl_divergence(mvn_uniform))
+    
+    #latent_loss = tf.reduce_mean(ctfm.multivariate_latent_loss(tensors['mean'], tensors['covariance']))
     reconstr_loss = tf.reduce_mean(tf.reduce_sum(tf.losses.absolute_difference(tensors['patch'], tensors['logits'], reduction=tf.losses.Reduction.NONE),axis=[1,2,3]))
 
     discriminator_loss = tf.losses.sparse_softmax_cross_entropy(labels=labels, logits=tensors['predictions_discriminator'])
@@ -74,7 +82,9 @@ def my_model(features, labels, mode, params, config):
     train_op_encoder = optimizer.minimize(loss, global_step=tf.train.get_global_step())
     train_op_discriminator = optimizer.minimize(discriminator_loss, var_list=[components['discriminator'][1]])
     train_op_classifier = optimizer.minimize(classifier_loss, var_list=[components['classifier'][1]])
-    decoder_variables = components['decoder_stain'][1] + components['decoder_structure'][1] + components['merger'][1]
+
+    #decoder_variables = components['decoder_stain'][1] + components['decoder_structure'][1] + components['merger'][1]
+    decoder_variables = components['decoder'][1]
     train_op_decoder = optimizer.minimize(reconstr_loss, var_list=decoder_variables)
 
     train_op = tf.group([train_op_encoder,train_op_discriminator,train_op_classifier,train_op_decoder])
@@ -127,6 +137,15 @@ def my_model(features, labels, mode, params, config):
     assert mode == tf.estimator.ModeKeys.TRAIN   
     return tf.estimator.EstimatorSpec(mode, loss=loss, train_op=train_op, training_hooks=[embedding_hook])
 
+mean = np.load("mean.npy")
+variance = np.load("variance.npy")
+stddev = [np.math.sqrt(x) for x in variance]
+
+def _normalize_op(features):
+    channels = [tf.expand_dims((features['patch'][:,:,channel] - mean[channel]) / stddev[channel],-1) for channel in range(3)]
+    features['patch'] = tf.concat(channels, 2)
+    return features
+
 
 def main(argv):
     parser = argparse.ArgumentParser(description='TODO')
@@ -136,18 +155,18 @@ def main(argv):
     cutil.make_directory(args.model_dir)
     cutil.publish(args.model_dir)
 
-    config_path = os.path.join(git_root,'examples','models','gae','configuration_v2.json')
+    config_path = os.path.join(git_root,'examples','models','gae','configuration.json')
     config = ctfm.parse_json(config_path)
 
     config_datasets = config.get('datasets')
     config_model = config.get('model')
 
 
-    #train_fn = ctfd.construct_train_fn(config_datasets, operations=[_normalize_op])
-    def train_fn():
-        dataset = tf.data.Dataset.from_tensor_slices(np.random.rand(256,32,32,3))
-        dataset = dataset.map(lambda x : ({"patch": x}, 0)).batch(256).repeat()
-        return dataset
+    train_fn = ctfd.construct_train_fn(config_datasets, operations=[_normalize_op])
+    #def train_fn():
+    #    dataset = tf.data.Dataset.from_tensor_slices(np.random.rand(256,32,32,3))
+    #    dataset = dataset.map(lambda x : ({"patch": x}, 0)).batch(256).repeat()
+    #    return dataset
         
     steps = int(config_datasets.get('training').get('size') / config_datasets.get('batch'))
 
