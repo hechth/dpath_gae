@@ -21,3 +21,16 @@ def latent_loss(mean, log_sigma_sq):
     latent_loss = tf.reduce_mean(latent_loss)    
     return latent_loss
     #return tf.reduce_mean(-0.5 * tf.reduce_sum(1 + variance - tf.square(mean) - tf.log(variance), axis=1))
+
+def multivariate_latent_loss(mean, covariance):
+    #X = tf.contrib.distributions.MultivariateNormalFullCovariance(mean, covariance)
+    X = tf.contrib.distributions.MultivariateNormalTriL(loc=mean, scale_tril=covariance)
+    k = mean.get_shape().as_list()[-1]
+
+    prior_mean = tf.zeros_like(mean)
+    diagonal = tf.linalg.tensor_diag(tf.ones([k]))
+    expanded = tf.expand_dims(diagonal,0)
+    prior_covariance = tf.tile(expanded,[tf.shape(mean)[0],1,1])
+    prior = tf.contrib.distributions.MultivariateNormalFullCovariance(prior_mean, prior_covariance)
+    kl_div = X.kl_divergence(prior)
+    return kl_div
