@@ -5,8 +5,10 @@ sys.path.append(git_root)
 
 import numpy as np
 import tensorflow as tf
+
 from tensorflow.contrib import predictor
 
+import packages.Tensorflow as ctf
 import packages.Tensorflow.Image as ctfi
 import packages.Utility as cutil
 
@@ -78,27 +80,44 @@ def main(argv):
     #warped_target_patches = normalize(tf.image.extract_glimpse(tf.tile(warped_target,[64,1,1,1]),[32,32],target_source_control_point_locations[0]))
     #warped_moving_patches = normalize(tf.image.extract_glimpse(tf.tile(warped_moving,[64,1,1,1]),[32,32],moving_source_control_point_locations[0]))
 
-    learning_rate = 0.001
+    learning_rate = 0.0005
 
     with tf.Session(graph=tf.get_default_graph()).as_default() as sess:
 
         g = tf.Graph()       
         saved_model = predictor.from_saved_model(args.export_dir, graph=g)
 
-        fetch_ops = ['max_pooling2d_4/MaxPool:0','init']
+        #fetch_ops = ['max_pooling2d_4/MaxPool:0','init']
         #fetch_ops = ['z:0','init']
+        fetch_ops = ['z_mean/BiasAdd:0','z_log_sigma_sq/BiasAdd:0','init']
         fetch_ops.extend([v.name.strip(":0") + "/Assign" for v in g.get_collection(tf.GraphKeys.GLOBAL_VARIABLES)])
                 
         warped_target_graph = tf.graph_util.import_graph_def(g.as_graph_def(), input_map={'patch:0': warped_target_patches}, return_elements=fetch_ops, name='')
         warped_moving_graph = tf.graph_util.import_graph_def(g.as_graph_def(),input_map={'patch:0': warped_moving_patches}, return_elements=fetch_ops, name='')
         
-        sess.run(warped_target_graph[1:])
-        sess.run(warped_moving_graph[1:])
+        sess.run(warped_target_graph[2:])
+        sess.run(warped_moving_graph[2:])
 
-        warped_target_codes = warped_target_graph[0]
-        warped_moving_codes = warped_moving_graph[0]
+        #warped_target_codes = warped_target_graph[0]
+        #warped_moving_codes = warped_moving_graph[0]
 
-        loss = tf.reduce_sum(tf.math.squared_difference(warped_target_codes, warped_moving_codes))
+        target_mean = tf.squeeze(warped_target_graph[0])
+        target_stddev = tf.sqrt(tf.exp(tf.squeeze(warped_target_graph[1])))
+        target_distribution = (target_mean, target_stddev)
+        N_target = tf.distributions.Normal(target_mean, target_stddev)
+
+        moving_mean = tf.squeeze(warped_moving_graph[0])
+        moving_stddev = tf.sqrt(tf.exp(tf.squeeze(warped_moving_graph[1])))
+        moving_distribution = (moving_mean, moving_stddev)
+        N_mov = tf.distributions.Normal(moving_mean, moving_stddev)
+
+        sym_kl_div = ctf.symmetric_kl_div(target_distribution, moving_distribution)
+        #multi_kl_div = ctf.multivariate_kl_div(N_target, N_mov)
+
+        loss = tf.reduce_sum(sym_kl_div)
+        
+
+        #loss = tf.reduce_sum(tf.math.squared_difference(warped_target_codes, warped_moving_codes))
         #loss = tf.reduce_sum(tf.sqrt(tf.math.squared_difference(image_code, warped_code)))
         #loss = tf.reduce_sum(tf.math.squared_difference(warped_target, warped_moving))
 
@@ -193,7 +212,7 @@ def main(argv):
                 diff_target = tf.abs(image_target - warped_target).eval(session=sess)
                 diff = tf.abs(warped_target - warped_moving).eval(session=sess)
 
-                warped_code_eval = np.mean(warped_moving_codes.eval(session=sess))
+                #warped_code_eval = np.mean(warped_moving_codes.eval(session=sess))
 
                 print("{0:d}\t{1:.4f}\t{2:.4f}\t{3:.4f}\t{4:.4f}".format(step_val, loss_val, np.sum(diff_moving), np.sum(diff_target), np.sum(diff)))
 
