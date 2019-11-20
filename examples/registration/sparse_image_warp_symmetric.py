@@ -43,7 +43,7 @@ def main(argv):
 
     step = tf.Variable(tf.zeros([], dtype=tf.float32))    
 
-    X, Y = np.mgrid[0:512:8j, 0:512:8j]
+    X, Y = np.mgrid[0:512:16j, 0:512:16j]
     positions = np.transpose(np.vstack([X.ravel(), Y.ravel()]))
     positions = tf.expand_dims(tf.convert_to_tensor(positions, dtype=tf.float32),0)
 
@@ -58,7 +58,7 @@ def main(argv):
         dest_control_point_locations,
         name='sparse_image_warp_moving',
         interpolation_order=2,
-        regularization_weight=0.001,
+        #regularization_weight=0.001,
         #num_boundary_points=1
     )
 
@@ -69,7 +69,7 @@ def main(argv):
         dest_control_point_locations,
         name='sparse_image_warp_target',
         interpolation_order=2,
-        regularization_weight=0.001,
+        #regularization_weight=0.001,
         #num_boundary_points=1
     )
 
@@ -80,7 +80,9 @@ def main(argv):
     #warped_target_patches = normalize(tf.image.extract_glimpse(tf.tile(warped_target,[64,1,1,1]),[32,32],target_source_control_point_locations[0]))
     #warped_moving_patches = normalize(tf.image.extract_glimpse(tf.tile(warped_moving,[64,1,1,1]),[32,32],moving_source_control_point_locations[0]))
 
-    learning_rate = 0.0005
+    #learning_rate = 0.05 # h_squared
+    #learning_rate = 0.0001 # sym_kl
+    learning_rate = 0.01 # battacharyya
 
     with tf.Session(graph=tf.get_default_graph()).as_default() as sess:
 
@@ -89,7 +91,7 @@ def main(argv):
 
         #fetch_ops = ['max_pooling2d_4/MaxPool:0','init']
         #fetch_ops = ['z:0','init']
-        fetch_ops = ['z_mean/BiasAdd:0','z_log_sigma_sq/BiasAdd:0','init']
+        fetch_ops = ['z_mean/BiasAdd:0','z_covariance/MatrixBandPart:0','init']
         fetch_ops.extend([v.name.strip(":0") + "/Assign" for v in g.get_collection(tf.GraphKeys.GLOBAL_VARIABLES)])
                 
         warped_target_graph = tf.graph_util.import_graph_def(g.as_graph_def(), input_map={'patch:0': warped_target_patches}, return_elements=fetch_ops, name='')
@@ -101,27 +103,30 @@ def main(argv):
         #warped_target_codes = warped_target_graph[0]
         #warped_moving_codes = warped_moving_graph[0]
 
-        target_mean = tf.squeeze(warped_target_graph[0])
-        target_stddev = tf.sqrt(tf.exp(tf.squeeze(warped_target_graph[1])))
-        target_distribution = (target_mean, target_stddev)
-        N_target = tf.distributions.Normal(target_mean, target_stddev)
+        target_mean = warped_target_graph[0]#[:,6:]
+        target_cov = warped_target_graph[1]#[:,6:,6:]
+        N_target = tf.contrib.distributions.MultivariateNormalTriL(loc=target_mean, scale_tril=target_cov)
 
-        moving_mean = tf.squeeze(warped_moving_graph[0])
-        moving_stddev = tf.sqrt(tf.exp(tf.squeeze(warped_moving_graph[1])))
-        moving_distribution = (moving_mean, moving_stddev)
-        N_mov = tf.distributions.Normal(moving_mean, moving_stddev)
+        moving_mean = warped_moving_graph[0]#[:,6:]
+        moving_cov = warped_moving_graph[1]#[:,6:,6:]
+        N_mov = tf.contrib.distributions.MultivariateNormalTriL(loc=moving_mean, scale_tril=moving_cov)
 
-        sym_kl_div = ctf.symmetric_kl_div(target_distribution, moving_distribution)
+        #sym_kl_div = N_target.kl_divergence(N_mov) + N_mov.kl_divergence(N_target)        
+        #h_squared = ctf.multivariate_squared_hellinger_distance(N_target, N_mov)
+        #hellinger = tf.sqrt(h_squared)
+
+        batta_dist = ctf.bhattacharyya_distance(N_target, N_mov)
+        
         #multi_kl_div = ctf.multivariate_kl_div(N_target, N_mov)
 
-        loss = tf.reduce_sum(sym_kl_div)
+        loss = tf.reduce_sum(batta_dist)
         
 
         #loss = tf.reduce_sum(tf.math.squared_difference(warped_target_codes, warped_moving_codes))
         #loss = tf.reduce_sum(tf.sqrt(tf.math.squared_difference(image_code, warped_code)))
         #loss = tf.reduce_sum(tf.math.squared_difference(warped_target, warped_moving))
 
-        optimizer =  tf.train.GradientDescentOptimizer(learning_rate=learning_rate)
+        optimizer =  tf.contrib.optimizer_v2.GradientDescentOptimizer(learning_rate=learning_rate)
 
         compute_gradients = optimizer.compute_gradients(loss,var_list=[moving_source_control_point_locations, target_source_control_point_locations])
         apply_gradients = optimizer.apply_gradients(compute_gradients, global_step=step)
@@ -194,7 +199,7 @@ def main(argv):
         plt.show()
 
         iterations = 100000
-        print_iterations = 100
+        print_iterations = 10
         accumulated_gradients = np.zeros_like(sess.run(compute_gradients))
 
         while step.value().eval(session=sess) < iterations:
@@ -206,6 +211,11 @@ def main(argv):
             accumulated_gradients += gradients
 
             if step_val % print_iterations == 0 or step_val == iterations - 1 :
+                moving_cov_val = sess.run(moving_cov)
+                target_cov_val = sess.run(target_cov)
+                moving_mean_val = sess.run(moving_mean)
+                target_mean_val = sess.run(target_mean)
+                
                 loss_val = loss.eval(session=sess)                
                 
                 diff_moving = tf.abs(image_moving - warped_moving).eval(session=sess)
