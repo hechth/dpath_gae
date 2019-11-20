@@ -19,9 +19,9 @@ variance = np.load("variance.npy")
 stddev = [np.math.sqrt(x) for x in variance]
 
 
-def normalize(image):
+def normalize(image, name=None):
     channels = [tf.expand_dims((image[:,:,:,channel] - mean[channel]) / stddev[channel],-1) for channel in range(3)]
-    return tf.concat(channels, 3)
+    return tf.concat(channels, 3, name=name)
 
 def denormalize(image):
     channels = [np.expand_dims(image[:,:,channel] * stddev[channel] + mean[channel],-1) for channel in range(3)]
@@ -36,14 +36,14 @@ def main(argv):
     args = parser.parse_args()
 
     filename_target = os.path.join(git_root,'data','images','HE_level_1_cropped_512x512.png')
-    image_target = tf.expand_dims(ctfi.load(filename_target, width=512, height=512, channels=3),0)
+    image_target = tf.contrib.image.rotate(tf.expand_dims(ctfi.load(filename_target, width=512, height=512, channels=3),0),0.05*math.pi)
 
-    filename_moving = os.path.join(git_root,'data','images','CD3_level_1_cropped_512x512.png')
-    image_moving = tf.expand_dims(ctfi.load(filename_moving, width=512, height=512, channels=3),0)
+    filename_moving = os.path.join(git_root,'data','images','HE_level_1_cropped_512x512.png')
+    image_moving = tf.contrib.image.rotate(tf.expand_dims(ctfi.load(filename_moving, width=512, height=512, channels=3),0),-0.05*math.pi)
 
     step = tf.Variable(tf.zeros([], dtype=tf.float32))    
 
-    X, Y = np.mgrid[0:512:16j, 0:512:16j]
+    X, Y = np.mgrid[0:512:8j, 0:512:8j]
     positions = np.transpose(np.vstack([X.ravel(), Y.ravel()]))
     positions = tf.expand_dims(tf.convert_to_tensor(positions, dtype=tf.float32),0)
 
@@ -57,8 +57,8 @@ def main(argv):
         moving_source_control_point_locations,
         dest_control_point_locations,
         name='sparse_image_warp_moving',
-        interpolation_order=2,
-        #regularization_weight=0.001,
+        interpolation_order=1,
+        regularization_weight=0.01,
         #num_boundary_points=1
     )
 
@@ -68,58 +68,69 @@ def main(argv):
         target_source_control_point_locations,
         dest_control_point_locations,
         name='sparse_image_warp_target',
-        interpolation_order=2,
-        #regularization_weight=0.001,
+        interpolation_order=1,
+        regularization_weight=0.01,
         #num_boundary_points=1
     )
 
 
-    warped_target_patches = normalize(ctfi.extract_patches(warped_target[0], 32, strides=[1,32,32,1]))
-    warped_moving_patches = normalize(ctfi.extract_patches(warped_moving[0], 32, strides=[1,32,32,1]))
+    warped_target_patches = normalize(ctfi.extract_patches(warped_target[0], 32, strides=[1,8,8,1]))
+    warped_moving_patches = normalize(ctfi.extract_patches(warped_moving[0], 32, strides=[1,8,8,1]))
 
-    #warped_target_patches = normalize(tf.image.extract_glimpse(tf.tile(warped_target,[64,1,1,1]),[32,32],target_source_control_point_locations[0]))
-    #warped_moving_patches = normalize(tf.image.extract_glimpse(tf.tile(warped_moving,[64,1,1,1]),[32,32],moving_source_control_point_locations[0]))
+    #warped_target_patches = normalize(tf.image.extract_glimpse(tf.tile(warped_target,[64,1,1,1]),[32,32],target_source_control_point_locations[0], centered=False))
+    #warped_moving_patches = normalize(tf.image.extract_glimpse(tf.tile(warped_moving,[64,1,1,1]),[32,32],moving_source_control_point_locations[0], centered=False))
 
     #learning_rate = 0.05 # h_squared
     #learning_rate = 0.0001 # sym_kl
-    learning_rate = 0.01 # battacharyya
+    #learning_rate = 0.05 # battacharyya
+    learning_rate = 1 #hellinger
+
+    latest_checkpoint = tf.train.latest_checkpoint(args.export_dir)
+    #saver_target = tf.train.import_meta_graph(latest_checkpoint + '.meta', import_scope='target')
+    #saver_moving = tf.train.import_meta_graph(latest_checkpoint + '.meta', import_scope='moving')
+    
+    saver = tf.train.import_meta_graph(latest_checkpoint + '.meta', import_scope='imported')
 
     with tf.Session(graph=tf.get_default_graph()).as_default() as sess:
-
-        g = tf.Graph()       
-        saved_model = predictor.from_saved_model(args.export_dir, graph=g)
+        #g = tf.Graph()       
+        #saved_model = predictor.from_saved_model('/sdb1/logs/examples/models/gae_sampler_v2_0/saved_model/1574232815', graph=sess.graph)
 
         #fetch_ops = ['max_pooling2d_4/MaxPool:0','init']
         #fetch_ops = ['z:0','init']
-        fetch_ops = ['z_mean/BiasAdd:0','z_covariance/MatrixBandPart:0','init']
-        fetch_ops.extend([v.name.strip(":0") + "/Assign" for v in g.get_collection(tf.GraphKeys.GLOBAL_VARIABLES)])
-                
-        warped_target_graph = tf.graph_util.import_graph_def(g.as_graph_def(), input_map={'patch:0': warped_target_patches}, return_elements=fetch_ops, name='')
-        warped_moving_graph = tf.graph_util.import_graph_def(g.as_graph_def(),input_map={'patch:0': warped_moving_patches}, return_elements=fetch_ops, name='')
+        #fetch_ops = ['z_mean/BiasAdd:0','z_covariance/MatrixBandPart:0']
+        #fetch_ops.extend([v.name for v in g.get_collection(tf.GraphKeys.GLOBAL_VARIABLES)])    
+                    
+        #warped_target_graph = tf.graph_util.import_graph_def(sess.graph.as_graph_def(), input_map={'patch:0': warped_target_patches}, return_elements=fetch_ops, name='target')
+        #warped_moving_graph = tf.graph_util.import_graph_def(sess.graph.as_graph_def(),input_map={'patch:0': warped_moving_patches}, return_elements=fetch_ops, name='moving')
+
+        #sess.run(warped_target_graph[2:])
+        #sess.run(warped_moving_graph[2:])    
+
+
+        #target_cov, target_mean = tf.contrib.graph_editor.graph_replace([sess.graph.get_tensor_by_name('target/z_covariance/MatrixBandPart:0'),sess.graph.get_tensor_by_name('target/z_mean/BiasAdd:0')] ,{ sess.graph.get_tensor_by_name('target/patch:0'): warped_target_patches })
+        #moving_cov, moving_mean = tf.contrib.graph_editor.graph_replace([sess.graph.get_tensor_by_name('moving/z_covariance/MatrixBandPart:0'),sess.graph.get_tensor_by_name('moving/z_mean/BiasAdd:0')] ,{ sess.graph.get_tensor_by_name('moving/patch:0'): warped_moving_patches })
         
-        sess.run(warped_target_graph[2:])
-        sess.run(warped_moving_graph[2:])
+        target_cov, target_mean = tf.contrib.graph_editor.graph_replace([sess.graph.get_tensor_by_name('imported/z_covariance/MatrixBandPart:0'),sess.graph.get_tensor_by_name('imported/z_mean/BiasAdd:0')] ,{ sess.graph.get_tensor_by_name('imported/patch:0'): warped_target_patches })
+        moving_cov, moving_mean = tf.contrib.graph_editor.graph_replace([sess.graph.get_tensor_by_name('imported/z_covariance/MatrixBandPart:0'),sess.graph.get_tensor_by_name('imported/z_mean/BiasAdd:0')] ,{ sess.graph.get_tensor_by_name('imported/patch:0'): warped_moving_patches })
 
-        #warped_target_codes = warped_target_graph[0]
-        #warped_moving_codes = warped_moving_graph[0]
+        #target_mean = warped_target_graph[0]#[:,6:]
+        #target_cov = warped_target_graph[1]#[:,6:,6:]
+        N_target = tf.contrib.distributions.MultivariateNormalTriL(loc=target_mean[:,6:], scale_tril=target_cov[:,6:,6:])
 
-        target_mean = warped_target_graph[0]#[:,6:]
-        target_cov = warped_target_graph[1]#[:,6:,6:]
-        N_target = tf.contrib.distributions.MultivariateNormalTriL(loc=target_mean, scale_tril=target_cov)
+        #moving_mean = warped_moving_graph[0]#[:,6:]
+        #moving_cov = warped_moving_graph[1]#[:,6:,6:]
+        N_mov = tf.contrib.distributions.MultivariateNormalTriL(loc=moving_mean[:,6:], scale_tril=moving_cov[:,6:,6:])
 
-        moving_mean = warped_moving_graph[0]#[:,6:]
-        moving_cov = warped_moving_graph[1]#[:,6:,6:]
-        N_mov = tf.contrib.distributions.MultivariateNormalTriL(loc=moving_mean, scale_tril=moving_cov)
-
-        #sym_kl_div = N_target.kl_divergence(N_mov) + N_mov.kl_divergence(N_target)        
-        #h_squared = ctf.multivariate_squared_hellinger_distance(N_target, N_mov)
-        #hellinger = tf.sqrt(h_squared)
+        sym_kl_div = N_target.kl_divergence(N_mov) + N_mov.kl_divergence(N_target)        
+        
+        h_squared = ctf.multivariate_squared_hellinger_distance(N_target, N_mov)
+        hellinger = tf.sqrt(h_squared)
 
         batta_dist = ctf.bhattacharyya_distance(N_target, N_mov)
         
         #multi_kl_div = ctf.multivariate_kl_div(N_target, N_mov)
 
-        loss = tf.reduce_sum(batta_dist)
+        loss = tf.reduce_sum(hellinger)
         
 
         #loss = tf.reduce_sum(tf.math.squared_difference(warped_target_codes, warped_moving_codes))
@@ -133,6 +144,10 @@ def main(argv):
 
         sess.run(tf.global_variables_initializer())
         sess.run(tf.local_variables_initializer())
+
+        #saver_target.restore(sess, latest_checkpoint)
+        #saver_moving.restore(sess, latest_checkpoint)
+        saver.restore(sess, latest_checkpoint)
 
         fig, ax = plt.subplots(3,3)
         ax[0,0].imshow(ctfi.rescale(image_target.eval(session=sess)[0], 0.0, 1.0))
@@ -252,7 +267,7 @@ def main(argv):
                     moving_gradients[:,0],
                     moving_gradients[:,1],
                     moving_gradients,
-                    units='xy',angles='xy', scale_units='xy', scale=print_iterations)
+                    units='xy',angles='xy', scale_units='xy', scale=print_iterations/10)
 
                 plot_target_grad.remove()
                 plot_target_grad = ax[1,0].quiver(
@@ -261,7 +276,7 @@ def main(argv):
                     target_gradients[:,0],
                     target_gradients[:,1],
                     target_gradients,
-                    units='xy',angles='xy', scale_units='xy', scale=print_iterations)
+                    units='xy',angles='xy', scale_units='xy', scale=print_iterations/10)
 
                 fig.canvas.draw()
                 fig.canvas.flush_events()

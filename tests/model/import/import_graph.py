@@ -17,13 +17,12 @@ def main(argv):
         print(sess.run(kernel))
 
         cov = sess.graph.get_tensor_by_name('imported/z_covariance/MatrixBandPart:0')
-        cov_eval = sess.run(cov,feed_dict={'imported/patch:0' : np.zeros([1,32,32,3])})
+        mean = sess.graph.get_tensor_by_name('imported/z_mean/BiasAdd:0')
+        cov_val, mean_val = sess.run([cov,mean],feed_dict={'imported/patch:0' : np.zeros([1,32,32,3])})
+        cov_tensor = tf.convert_to_tensor(cov_val)
+        mean_tensor = tf.convert_to_tensor(mean_val)
+        cov_eval = sess.run(cov_tensor)
         print(cov_eval)
-
-        patch = sess.graph.get_tensor_by_name('imported/var_patch')
-       
-        print(sess.run(patch))
-
         print('Done!')
 
 
