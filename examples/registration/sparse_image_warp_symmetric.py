@@ -36,10 +36,12 @@ def main(argv):
     args = parser.parse_args()
 
     filename_target = os.path.join(git_root,'data','images','HE_level_1_cropped_512x512.png')
-    image_target = tf.contrib.image.rotate(tf.expand_dims(ctfi.load(filename_target, width=512, height=512, channels=3),0),0.05*math.pi)
+    image_target = tf.expand_dims(ctfi.load(filename_target, width=512, height=512, channels=3),0)
+    #image_target = tf.contrib.image.rotate(image_target,0.05*math.pi)
 
-    filename_moving = os.path.join(git_root,'data','images','HE_level_1_cropped_512x512.png')
-    image_moving = tf.contrib.image.rotate(tf.expand_dims(ctfi.load(filename_moving, width=512, height=512, channels=3),0),-0.05*math.pi)
+    filename_moving = os.path.join(git_root,'data','images','CD3_level_1_cropped_512x512.png')
+    image_moving = tf.expand_dims(ctfi.load(filename_moving, width=512, height=512, channels=3),0)
+    #image_moving = tf.contrib.image.rotate(image_moving,-0.05*math.pi)
 
     step = tf.Variable(tf.zeros([], dtype=tf.float32))    
 
@@ -74,16 +76,17 @@ def main(argv):
     )
 
 
-    warped_target_patches = normalize(ctfi.extract_patches(warped_target[0], 32, strides=[1,8,8,1]))
-    warped_moving_patches = normalize(ctfi.extract_patches(warped_moving[0], 32, strides=[1,8,8,1]))
+    warped_target_patches = normalize(ctfi.extract_patches(warped_target[0], 32, strides=[1,16,16,1]))
+    warped_moving_patches = normalize(ctfi.extract_patches(warped_moving[0], 32, strides=[1,16,16,1]))
 
     #warped_target_patches = normalize(tf.image.extract_glimpse(tf.tile(warped_target,[64,1,1,1]),[32,32],target_source_control_point_locations[0], centered=False))
     #warped_moving_patches = normalize(tf.image.extract_glimpse(tf.tile(warped_moving,[64,1,1,1]),[32,32],moving_source_control_point_locations[0], centered=False))
 
     #learning_rate = 0.05 # h_squared
-    #learning_rate = 0.0001 # sym_kl
+    learning_rate = 0.01 # sym_kl
     #learning_rate = 0.05 # battacharyya
-    learning_rate = 1 #hellinger
+    #learning_rate = 1 #hellinger
+    #learning_rate = 0.005 # ssd loss
 
     latest_checkpoint = tf.train.latest_checkpoint(args.export_dir)
     #saver_target = tf.train.import_meta_graph(latest_checkpoint + '.meta', import_scope='target')
@@ -110,8 +113,8 @@ def main(argv):
         #target_cov, target_mean = tf.contrib.graph_editor.graph_replace([sess.graph.get_tensor_by_name('target/z_covariance/MatrixBandPart:0'),sess.graph.get_tensor_by_name('target/z_mean/BiasAdd:0')] ,{ sess.graph.get_tensor_by_name('target/patch:0'): warped_target_patches })
         #moving_cov, moving_mean = tf.contrib.graph_editor.graph_replace([sess.graph.get_tensor_by_name('moving/z_covariance/MatrixBandPart:0'),sess.graph.get_tensor_by_name('moving/z_mean/BiasAdd:0')] ,{ sess.graph.get_tensor_by_name('moving/patch:0'): warped_moving_patches })
         
-        target_cov, target_mean = tf.contrib.graph_editor.graph_replace([sess.graph.get_tensor_by_name('imported/z_covariance/MatrixBandPart:0'),sess.graph.get_tensor_by_name('imported/z_mean/BiasAdd:0')] ,{ sess.graph.get_tensor_by_name('imported/patch:0'): warped_target_patches })
-        moving_cov, moving_mean = tf.contrib.graph_editor.graph_replace([sess.graph.get_tensor_by_name('imported/z_covariance/MatrixBandPart:0'),sess.graph.get_tensor_by_name('imported/z_mean/BiasAdd:0')] ,{ sess.graph.get_tensor_by_name('imported/patch:0'): warped_moving_patches })
+        target_cov, target_mean = tf.contrib.graph_editor.graph_replace([sess.graph.get_tensor_by_name('imported/z_covariance_lower_tri/MatrixBandPart:0'),sess.graph.get_tensor_by_name('imported/z_mean/BiasAdd:0')] ,{ sess.graph.get_tensor_by_name('imported/patch:0'): warped_target_patches })
+        moving_cov, moving_mean = tf.contrib.graph_editor.graph_replace([sess.graph.get_tensor_by_name('imported/z_covariance_lower_tri/MatrixBandPart:0'),sess.graph.get_tensor_by_name('imported/z_mean/BiasAdd:0')] ,{ sess.graph.get_tensor_by_name('imported/patch:0'): warped_moving_patches })
 
         #target_mean = warped_target_graph[0]#[:,6:]
         #target_cov = warped_target_graph[1]#[:,6:,6:]
@@ -123,14 +126,14 @@ def main(argv):
 
         sym_kl_div = N_target.kl_divergence(N_mov) + N_mov.kl_divergence(N_target)        
         
-        h_squared = ctf.multivariate_squared_hellinger_distance(N_target, N_mov)
-        hellinger = tf.sqrt(h_squared)
+        #h_squared = ctf.multivariate_squared_hellinger_distance(N_target, N_mov)
+        #hellinger = tf.sqrt(h_squared)
 
-        batta_dist = ctf.bhattacharyya_distance(N_target, N_mov)
+        #batta_dist = ctf.bhattacharyya_distance(N_target, N_mov)
         
-        #multi_kl_div = ctf.multivariate_kl_div(N_target, N_mov)
+        #multi_kl_div = ctf.multivariate_kl_div(N_target, N_mov) + ctf.multivariate_kl_div(N_mov, N_target)
 
-        loss = tf.reduce_sum(hellinger)
+        loss = tf.reduce_sum(sym_kl_div)
         
 
         #loss = tf.reduce_sum(tf.math.squared_difference(warped_target_codes, warped_moving_codes))
@@ -213,8 +216,8 @@ def main(argv):
         fig.canvas.flush_events()
         plt.show()
 
-        iterations = 100000
-        print_iterations = 10
+        iterations = 5000
+        print_iterations = 100
         accumulated_gradients = np.zeros_like(sess.run(compute_gradients))
 
         while step.value().eval(session=sess) < iterations:
@@ -226,10 +229,10 @@ def main(argv):
             accumulated_gradients += gradients
 
             if step_val % print_iterations == 0 or step_val == iterations - 1 :
-                moving_cov_val = sess.run(moving_cov)
-                target_cov_val = sess.run(target_cov)
-                moving_mean_val = sess.run(moving_mean)
-                target_mean_val = sess.run(target_mean)
+                #moving_cov_val = sess.run(moving_cov)
+                #target_cov_val = sess.run(target_cov)
+                #moving_mean_val = sess.run(moving_mean)
+                #target_mean_val = sess.run(target_mean)
                 
                 loss_val = loss.eval(session=sess)                
                 
@@ -249,10 +252,10 @@ def main(argv):
                 plot_diff_moving.set_data(ctfi.rescale(diff_moving[0], 0., 1.))
                 plot_diff_overlayed.set_data(ctfi.rescale(diff[0], 0., 1.))
 
-                moving_gradients = np.squeeze(accumulated_gradients[0][0])
+                moving_gradients = learning_rate * np.squeeze(accumulated_gradients[0][0])
                 moving_points = np.squeeze(gradients[0][1])
 
-                target_gradients = np.squeeze(accumulated_gradients[1][0])
+                target_gradients = learning_rate * np.squeeze(accumulated_gradients[1][0])
                 target_points = np.squeeze(gradients[1][1])
 
 
@@ -267,7 +270,7 @@ def main(argv):
                     moving_gradients[:,0],
                     moving_gradients[:,1],
                     moving_gradients,
-                    units='xy',angles='xy', scale_units='xy', scale=print_iterations/10)
+                    units='xy',angles='xy', scale_units='xy', scale=1)
 
                 plot_target_grad.remove()
                 plot_target_grad = ax[1,0].quiver(
@@ -276,7 +279,7 @@ def main(argv):
                     target_gradients[:,0],
                     target_gradients[:,1],
                     target_gradients,
-                    units='xy',angles='xy', scale_units='xy', scale=print_iterations/10)
+                    units='xy',angles='xy', scale_units='xy', scale=1)
 
                 fig.canvas.draw()
                 fig.canvas.flush_events()
