@@ -38,9 +38,10 @@ def multivariate_kl_div(X:tf.distributions.Normal, Y:tf.distributions.Normal):
     cov_x = X.covariance(name='cov_x')
     mean_x = X.mean(name='mean_x')
     mean_y = Y.mean(name='mean_y')
-    k = tf.shape(cov_x)[1]
+    k = tf.shape(cov_x,out_type=tf.float32)[1]
     trace_term = tf.linalg.trace(tf.linalg.matmul(cov_y_inv, cov_x))
-    middle_term =  tf.matmul(tf.transpose(mean_y - mean_x), tf.matmul(cov_y_inv, (mean_y - mean_x)))
+    diff_mean = tf.expand_dims(mean_y - mean_x, axis=-1)
+    middle_term =  tf.matmul(diff_mean, tf.matmul(cov_y_inv, diff_mean),transpose_a=True)
     determinant_term = tf.log(tf.linalg.det(cov_y) / tf.linalg.det(cov_x))
     
     multi_kl_div = 0.5 * (trace_term + middle_term - k + determinant_term)
