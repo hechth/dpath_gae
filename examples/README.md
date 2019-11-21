@@ -4,6 +4,8 @@
 
 ## Models
 
+### GAE
+The main model system which is described [here](gae).
 
 ### Autoencoder
 
