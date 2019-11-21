@@ -86,7 +86,11 @@ def match_regex(pattern, string):
     -------
     string or list of strings matching regex pattern.
     """
-    return re.search(pattern, string).group()
+    match = re.search(pattern, string)
+    if match is not None:
+        return match.group()
+    else:
+        return None
 
 def get_function(filename: str, funcname: str):
     """
