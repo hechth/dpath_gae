@@ -309,28 +309,19 @@ def _parse_sampler_v2(input_shape, config):
     mean.build(input_shape)
 
     output_shape = mean.compute_output_shape(input_shape)
-
     
     cov = tf.layers.Dense(
         (dims * (dims+1))/2,
-        name=name + '_covariance_lower_tri',
-        activation=tf.nn.relu,
+        name=name + '_covariance',
+        activation=tf.exp,
         kernel_initializer=tf.initializers.lecun_uniform(),
-        bias_initializer=tf.ones_initializer())
+        bias_initializer=tf.zeros_initializer())
 
     cov.build(input_shape)
-    cov_shape = cov.compute_output_shape(input_shape)
-    new_shape = cov_shape.as_list()[:-1]
-    new_shape.extend([dims,dims])    
     
     def _sample(x):
         mean_activation = mean(x)        
-        x_cov_tril = tf.contrib.distributions.fill_triangular(cov(x))
-
-        #x_cov_tril = tf.concat([x_cov_tril, tf.zeros([tf.shape(x)[0], dims - 1, 1], dtype=tf.float32)], 2)
-        #x_cov_tril = tf.concat([tf.zeros([tf.shape(x)[0], 1, dims], dtype=tf.float32), x_cov_tril], 1)
-        #x_cov_tril = tf.linalg.set_diag(x_cov_tril, tf.ones([tf.shape(x)[0], dims], dtype=tf.float32), name=name + '_covariance')     
-
+        x_cov_tril = tf.contrib.distributions.fill_triangular(cov(x), name=name + '_covariance_lower_tri')
         dist = tf.contrib.distributions.MultivariateNormalTriL(loc=mean_activation, scale_tril=x_cov_tril,name='x_dist')
         sample = dist.sample()
         return dist, sample
