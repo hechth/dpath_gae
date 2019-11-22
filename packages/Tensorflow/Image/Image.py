@@ -27,7 +27,7 @@ def load(filename, dtype=tf.float32, width=None, height=None, channels=3, name='
     # Decode image
     image = tf.image.decode_image(raw_image, dtype=dtype, channels=channels, name=name)
     if width is not None and height is not None:
-        image.set_shape([width, height, channels])
+        image = tf.image.resize_image_with_pad(image,height,width)
     return image
 
 def rescale(image, new_min, new_max):
@@ -82,11 +82,12 @@ def extract_patches(
     patches = tf.expand_dims(patches, 0)
     #num_patches = [int(image.shape.as_list()[0] / patch_size), int(image.shape.as_list()[1] / patch_size)]
     num_patches = [patches.shape.as_list()[2], patches.shape.as_list()[3]]
+    num_patches = tf.shape(patches)[2:4]
     
     # Change grid layout of [1, channels, x, y, pixels] to [patches, channels, 1, 1, pixels]
     patches = tf.space_to_batch_nd(
       patches,
-      [1, num_patches[0], num_patches[1]],
+      tf.concat([tf.ones([1], dtype=tf.int32), num_patches],0),
       [[0, 0], [0, 0], [0, 0]]
     )
 
@@ -99,7 +100,7 @@ def extract_patches(
     # Reshape from [patches, pixels, channels] to [patches, rows, cols, channels]
     patches = tf.reshape(
       patches,
-      [patches.shape[0], patch_size, patch_size, patches.shape[2]]
+      tf.stack([tf.reduce_prod(num_patches), patch_size, patch_size, 3])
     )
 
     return patches

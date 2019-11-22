@@ -1,5 +1,6 @@
 from .Feature import string_feature
 from .Feature import float_feature
+from .Feature import int64_feature
 
 from .Maps import tf_datatypes
 from .Maps import tf_operations
