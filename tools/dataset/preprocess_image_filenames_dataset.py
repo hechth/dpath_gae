@@ -25,7 +25,7 @@ def main(argv):
     parser = argparse.ArgumentParser(description='Create tfrecords dataset holding patches of images specified by filename in input dataset.')
 
     parser.add_argument('input_dataset', type=str, help='Path to dataset holding image filenames')
-    parser.add_argument('image_size', type=int, help='Image size for files pointed to by filename')
+    #parser.add_argument('image_size', type=int, help='Image size for files pointed to by filename')
     parser.add_argument('output_dataset', type=str, help='Path where to store the output dataset')
     parser.add_argument('patch_size', type=int, help='Patch size which to use in the preprocessed dataset')
     parser.add_argument('num_samples', type=int, help='Size of output dataset')
