@@ -67,7 +67,7 @@ def main(argv):
         var_per_pixel = (variation / num_pixels)
         return var_per_pixel > 0.08
 
-    dataset = patches_dataset.shuffle(100000)
+    dataset = patches_dataset.shuffle(200000)
 
     writer = tf.io.TFRecordWriter(args.output_dataset)
 
