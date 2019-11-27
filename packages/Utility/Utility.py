@@ -43,7 +43,7 @@ def publish(path):
     """
     Function which gives every user rwx access to target at path.
     """
-    os.chmod(path, stat.S_IROTH |stat.S_IWOTH | stat.S_IXOTH)
+    os.chmod(path, stat.S_IRWXU |stat.S_IRWXG | stat.S_IRWXO)
 
 def get_extension(filename)->str:
     """
