@@ -17,6 +17,42 @@ List of exposed functions:
 
 List of exposed functions:
 *   [avg_unpool2d](Layer.py): Custom layer performing average unpooling for 2D data.
+*   [parse_layer](Layer.py): Method that parses a layer configuration and returns the *layers, variables, function and output_shape* of the specified layer.
+
+### Supported Layer Types
+
+#### Dense
+Dense layers are fully connected layers having *units* hidden neurons and require an input of shape \[batch, features\].
+
+Optional Entries:
+* "trainable": They can be set as non-trainable.
+* "name": A name for the layer
+* "kernel_initializer": A kernel initializer.
+* "bias_initializer": A bias initializer.
+
+Example:
+```json
+{
+    "type":"dense",
+    "units":9,
+    "activation":"tf.nn.sigmoid",
+    "trainable": false,
+    "name":"dense_layer"
+}
+```
+
+#### Flatten
+A flattening layer transforms input of shape \[batch, x1, x2, ..., xk\] to \[batch, x1 * x2 * x3 * ... * xk\].
+
+Optional Entries:
+* "name": A name for the layer
+
+Example:
+```json
+{
+    "type":"flatten"
+}
+```
 
 ## Saved Model
 
@@ -26,3 +62,14 @@ List of exposed functions:
 *   [determine_patch_size](SavedModel.py): Extracts patch size from *model_dir*.
 *   [determine_batch_size](SavedModel.py): Extracts batch size from *model_dir*.
 *   [determine_latent_space_size](SavedModel.py): Extracts latent space size from *model_dir*.
+
+
+from .Layer import avg_unpool2d
+from .Layer import parse_layer
+
+from .Configuration import parse_component
+from .Configuration import parse_json
+from .Configuration import parse_inputs
+
+from .Losses import latent_loss
+from .Losses import multivariate_latent_loss

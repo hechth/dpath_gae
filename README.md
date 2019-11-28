@@ -92,6 +92,7 @@ The *input* of a component is the *key* of a feature describes in the model *inp
 *Layers* is an array, each entry defining a layer in the model. The layers are connected in the ordering in which they are defined in the array.
 
 Which fields are used to define properties regarding layers is described in [Layer.py](../packages/Tensorflow/Model/Layer.py).
+A detailed list of which layers can be specified and how is available [here](../packages/Tensorflow/Model)
 
 For examples of how to specify possible configurations and the corresponding python code to create the models are given in [Examples/Models](examples/models).
 
