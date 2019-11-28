@@ -21,6 +21,22 @@ List of exposed functions:
 
 ### Supported Layer Types
 
+This list comprises all types of layers that can be specified in a json config file in the "layers" entry of a component.
+
+Example Component specification:
+```json
+{
+    "name":"classifier",
+    "input": "code",
+    "layers":["Insert layer specifications here!"],
+    "output":"predictions_classifier"
+}
+```
+
+All layers are parsed using the [parse_layer](Layer.py) method by [parse_component](Component.py) and are defined by the *layers, variables, function, output_shape* quadruple and take the *input_shape* and the dict holding the *config* as arguments.
+
+Not all layer types populate all variables, since some layers are merely functions, not associated to a tf.layers.Layer instance, but all layers populate the *function* and *output_shape*. *function* is a callable lambda which runs the defined operation or applies the layer on the input *x*, while *output_shape* holds the shape of the function's output, which is required to build the consecutive layers.
+
 #### Dense
 Dense layers are fully connected layers having *units* hidden neurons and require an input of shape \[batch, features\].
 
@@ -40,6 +56,23 @@ Example:
     "name":"dense_layer"
 }
 ```
+#### Convolutional
+A convolutional layer is specified by the number of *filters* the *kernel_size* and the *strides*. For a detailed explanation of convolutional layers and the attributes see [here](https://www.tensorflow.org/versions/r1.12/api_docs/python/tf/layers/Conv2D).
+
+One difference from native tensorflow is that Conv2DTranspose layers are also specified using the same pattern but setting the "transpose" entry to true - which defaults to None or false.
+
+Example:
+```json
+{
+    "type":"conv",
+    "filters": 32,
+    "padding": "valid",
+    "kernel_size": [2,2],
+    "strides":[1,1],
+    "transpose": true,
+    "trainable":false
+}
+```
 
 #### Flatten
 A flattening layer transforms input of shape \[batch, x1, x2, ..., xk\] to \[batch, x1 * x2 * x3 * ... * xk\].
@@ -54,6 +87,33 @@ Example:
 }
 ```
 
+#### Slice
+A slice layer extracts a slice from a rank 2 tensor with shape \[batch, features\]. It can be used to split a tensor into 2 sub parts by having 2 components which take the original tensor as input and add the slices as output tensors.
+
+Example:
+```json
+{
+    "type":"slice",
+    "begin":[1],
+    "size":[17],
+    "name:":"z_structure"
+}
+```
+
+#### Reshape
+A reshape layer that reshapes the input to the specified shape without touching the batch dimension. Given an input with shape \[batch, 18\], the output of the reshape layer specified in the example has shape \[batch, 1, 1, 18\].
+
+These reshape layers are required to transition between convolutional and dense layers, as convolutional layers require input tensors of rank 4 while other layers usually work on rank 2 tensors. It's usually used as an inverse flatten layer.
+
+Example:
+```json
+{
+    "type":"reshape",
+    "shape":[1,1,18],
+    "name":"z_reshaped"
+}
+```
+
 ## Saved Model
 
 Functions to extract information from a saved model directory name.
@@ -62,14 +122,3 @@ List of exposed functions:
 *   [determine_patch_size](SavedModel.py): Extracts patch size from *model_dir*.
 *   [determine_batch_size](SavedModel.py): Extracts batch size from *model_dir*.
 *   [determine_latent_space_size](SavedModel.py): Extracts latent space size from *model_dir*.
-
-
-from .Layer import avg_unpool2d
-from .Layer import parse_layer
-
-from .Configuration import parse_component
-from .Configuration import parse_json
-from .Configuration import parse_inputs
-
-from .Losses import latent_loss
-from .Losses import multivariate_latent_loss
