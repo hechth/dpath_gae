@@ -336,6 +336,9 @@ def _parse_sampler_v2(input_shape, config):
     
 
 def _parse_concatenate(input_shape, config):
+    """
+    Layer that concatenates inputs along the last axis
+    """
     name = config.get('name')
 
     graph = tf.get_default_graph()
@@ -348,6 +351,38 @@ def _parse_concatenate(input_shape, config):
     function = lambda x: concatenated
     output_shape = concatenated.get_shape()
     return layer, variables, function, output_shape
+
+def _parse_warping(input_shape, config):
+    """
+    Layer that performs a dense image warp, see https://www.tensorflow.org/versions/r1.12/api_docs/python/tf/contrib/image/dense_image_warp.
+
+    Parameters
+    ----------
+    input_shape: Not required, only here for consistency reasons. \n
+    config: dict holding "image" (name of image tensor) and "flow" (name of flow tensor) and opt. "name". \n
+
+    Returns
+    -------
+    layer: None \n
+    variables: None \n
+    function: function performing warp operation. \n
+    output_shape: shape of the output tensor. \n
+    """
+    graph = tf.get_default_graph()
+
+    name = config.get('name')
+    image = graph.get_tensor_by_name(config.get('image') + ':0')
+    flow = graph.get_tensor_by_name(config.get('flow') + ':0')
+
+    warp_image_op = tf.contrib.image.dense_image_warp(image, flow, name=name)
+
+    layer = None
+    variables = None
+    function = lambda x: warp_image_op
+    output_shape = warp_image_op.get_shape()
+
+    return layer, variables, function, output_shape
+    
 
 def _parse_reshape(input_shape, config):
     """
@@ -482,6 +517,8 @@ def parse_layer(input_shape:list, config:dict):
         return _parse_resnet_v2_block(input_shape, config)   
     elif config['type'] == 'concatenate':
         return _parse_concatenate(input_shape, config)
+    elif config['type'] == 'warping':
+        return _parse_warping(input_shape, config)
     else:
         layer = _layer_map[config['type']](config)
         layer.build(input_shape)

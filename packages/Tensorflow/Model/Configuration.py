@@ -116,6 +116,7 @@ def parse_component(inputs:dict, config:dict, outputs: dict):
     funcs = list()
 
     # Get input shape for following layers
+    shape = None
     if type(config['input']) != list:
         shape = inputs[config['input']].get_shape()
     else:
