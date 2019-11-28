@@ -25,11 +25,11 @@ def main(argv):
     parser = argparse.ArgumentParser(description='Create tfrecords dataset holding patches of images specified by filename in input dataset.')
 
     parser.add_argument('input_dataset', type=str, help='Path to dataset holding image filenames')
-    #parser.add_argument('image_size', type=int, help='Image size for files pointed to by filename')
     parser.add_argument('output_dataset', type=str, help='Path where to store the output dataset')
     parser.add_argument('patch_size', type=int, help='Patch size which to use in the preprocessed dataset')
     parser.add_argument('num_samples', type=int, help='Size of output dataset')
     parser.add_argument('labels', type=lambda s: [item for item in s.split(',')], help="Comma separated list of labels to find in filenames.")
+    parser.add_argument('--image_size', type=int, dest='image_size', help='Image size for files pointed to by filename')
 
     args = parser.parse_args()
 
@@ -45,8 +45,10 @@ def main(argv):
         return tf.case([(tf.not_equal(tf.size(tf.string_split([filename],"")), tf.size(tf.string_split([tf.regex_replace(filename, '/'+ label + '/', "")]))) ,lambda : tf.constant(label)) for label in args.labels], default=None)
 
     # Load images and extract the label from the filename
-    #images_dataset = filename_dataset.map(lambda feature: {'image': ctfi.load(feature['filename'], channels=3, width=args.image_size, height=args.image_size), 'label': labels_table.lookup(_extract_label(feature['filename']))})
-    images_dataset = filename_dataset.map(lambda feature: {'image': ctfi.load(feature['filename'], channels=3), 'label': labels_table.lookup(_extract_label(feature['filename']))})
+    if args.image_size is not None:
+        images_dataset = filename_dataset.map(lambda feature: {'image': ctfi.load(feature['filename'], channels=3, width=args.image_size, height=args.image_size), 'label': labels_table.lookup(_extract_label(feature['filename']))})
+    else:
+        images_dataset = filename_dataset.map(lambda feature: {'image': ctfi.load(feature['filename'], channels=3), 'label': labels_table.lookup(_extract_label(feature['filename']))})
 
     # Extract image patches
 
@@ -62,12 +64,12 @@ def main(argv):
     # Filter function which filters the dataset after total image variation.
     # See: https://www.tensorflow.org/versions/r1.12/api_docs/python/tf/image/total_variation
     def _filter_func(sample)->bool:
-        variation = tf.image.total_variation(sample[0]).numpy()
+        variation = tf.image.total_variation(sample[0])
         num_pixels = sample[0].get_shape().num_elements()
         var_per_pixel = (variation / num_pixels)
         return var_per_pixel > 0.08
 
-    dataset = patches_dataset.shuffle(200000)
+    dataset = patches_dataset.filter(lambda patch, label: _filter_func((patch, label))).take(args.num_samples).shuffle(200000)
 
     writer = tf.io.TFRecordWriter(args.output_dataset)
 
@@ -76,14 +78,9 @@ def main(argv):
 
     # Iterate over whole dataset and write serialized examples to file.
     # See: https://www.tensorflow.org/versions/r1.12/api_docs/python/tf/contrib/eager/Iterator
-    written_samples = 0
     for sample in tfe.Iterator(dataset):
-        if _filter_func(sample) == True:
-            example = _encode_func(sample)
-            writer.write(example.SerializeToString())
-            written_samples += 1
-        if written_samples == args.num_samples:
-            break
+        example = _encode_func(sample)
+        writer.write(example.SerializeToString())
 
     # Flush and close the writer.
     writer.flush()
