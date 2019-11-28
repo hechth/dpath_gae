@@ -9,7 +9,7 @@ from packages.Utility import get_extension
 
 supported_extensions = ['png','bmp','jpg','jpeg','gif']
 
-def load(filename, dtype=tf.float32, width=None, height=None, channels=3, name=''):
+def load(filename, dtype=tf.float32, width=None, height=None, channels=3, name=None):
     """
     Function to load a tensorflow image.
     Supply information about height and width if known to make this known to the tensorflow graph.
@@ -28,6 +28,7 @@ def load(filename, dtype=tf.float32, width=None, height=None, channels=3, name='
     image = tf.image.decode_image(raw_image, dtype=dtype, channels=channels, name=name)
     if width is not None and height is not None:
         image = tf.image.resize_image_with_pad(image,height,width)
+        image = tf.reshape(image, shape=[height, width,channels], name=name)
     return image
 
 def rescale(image, new_min, new_max):
