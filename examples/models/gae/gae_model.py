@@ -137,25 +137,32 @@ def my_model(features, labels, mode, params, config):
     assert mode == tf.estimator.ModeKeys.TRAIN   
     return tf.estimator.EstimatorSpec(mode, loss=loss, train_op=train_op, training_hooks=[embedding_hook])
 
-mean = np.load("mean.npy")
-variance = np.load("variance.npy")
-stddev = [np.math.sqrt(x) for x in variance]
 
-def _normalize_op(features):
-    channels = [tf.expand_dims((features['patch'][:,:,channel] - mean[channel]) / stddev[channel],-1) for channel in range(3)]
-    features['patch'] = tf.concat(channels, 2)
-    return features
+
+
 
 
 def main(argv):
     parser = argparse.ArgumentParser(description='TODO')
+    parser.add_argument('config', type=str, help='Path to configuration file to use.')
+    parser.add_argument('mean', type=str, help='Path to npy file holding mean for normalization.')
+    parser.add_argument('variance', type=str, help='Path to npy file holding variance for normalization.')
     parser.add_argument('model_dir',type=str,help='Path to saved model to use for inference.')
     args = parser.parse_args()
+
+    mean = np.load(args.mean)
+    variance = np.load(args.variance)
+    stddev = [np.math.sqrt(x) for x in variance]
+
+    def _normalize_op(features):
+        channels = [tf.expand_dims((features['patch'][:,:,channel] - mean[channel]) / stddev[channel],-1) for channel in range(3)]
+        features['patch'] = tf.concat(channels, 2)
+        return features
 
     cutil.make_directory(args.model_dir)
     cutil.publish(args.model_dir)
 
-    config_path = os.path.join(git_root,'examples','models','gae','configuration.json')
+    config_path = args.config
     config = ctfm.parse_json(config_path)
 
     config_datasets = config.get('datasets')

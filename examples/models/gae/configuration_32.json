@@ -37,10 +37,10 @@
             }
         },
         "parameters": {
-            "beta": 6,
-            "alpha": 2,
-            "delta": 4,
-            "stain_code_size":9,
+            "beta": 16,
+            "alpha": 12,
+            "delta": 12,
+            "stain_code_size":1,
             "latent_space_size":18
         },
         "components": [      
@@ -171,7 +171,7 @@
                     {
                         "type":"slice",
                         "begin":[0],
-                        "size":[6],
+                        "size":[1],
                         "name:":"z_stain"
                     },
                     {
@@ -192,8 +192,8 @@
                     },
                     {
                         "type":"slice",
-                        "begin":[6],
-                        "size":[12],
+                        "begin":[1],
+                        "size":[17],
                         "name:":"z_structure"
                     },
                     {
@@ -338,7 +338,7 @@
         "embeddings": {
             "width": 32,
             "height": 32,
-            "stain_code_size": 6
+            "stain_code_size": 1
         }
     }
 }
