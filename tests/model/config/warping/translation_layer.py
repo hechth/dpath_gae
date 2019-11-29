@@ -28,7 +28,7 @@ translation_layer_conf = {
             "name":"translation_op"
         }
     ],
-    "output":"rotated_image"
+    "output":"translated_image"
 }
 
 def main(argv):
