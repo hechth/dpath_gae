@@ -176,7 +176,7 @@ def construct_train_fn(config, operations=[]):
 
         # Shuffle the dataset
         buffer_size = tf.constant(int((virtual_memory().total / 2) / element_size), tf.int64)
-        dataset = dataset.shuffle(500000)
+        dataset = dataset.shuffle(config['shuffle_size'])
 
         dataset = dataset.batch(config['batch'])
         dataset = dataset.prefetch(buffer_size=1)
