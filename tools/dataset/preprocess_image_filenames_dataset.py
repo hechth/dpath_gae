@@ -30,6 +30,7 @@ def main(argv):
     parser.add_argument('num_samples', type=int, help='Size of output dataset')
     parser.add_argument('labels', type=lambda s: [item for item in s.split(',')], help="Comma separated list of labels to find in filenames.")
     parser.add_argument('--image_size', type=int, dest='image_size', help='Image size for files pointed to by filename')
+    parser.add_argument('--threshold', type=float, dest='threshold', help='Threshold for filtering the samples according to variation.')
 
     args = parser.parse_args()
 
@@ -59,7 +60,11 @@ def main(argv):
         return (patches, labels)
 
     patches_dataset = images_dataset.map(_split_patches).apply(tf.data.experimental.unbatch())
-
+    
+    if args.threshold is not None:
+        threshold = args.threshold
+    else:
+        threshold = 0.08
 
     # Filter function which filters the dataset after total image variation.
     # See: https://www.tensorflow.org/versions/r1.12/api_docs/python/tf/image/total_variation
@@ -67,7 +72,7 @@ def main(argv):
         variation = tf.image.total_variation(sample[0])
         num_pixels = sample[0].get_shape().num_elements()
         var_per_pixel = (variation / num_pixels)
-        return var_per_pixel > 0.08
+        return var_per_pixel > threshold
 
     dataset = patches_dataset.filter(lambda patch, label: _filter_func((patch, label))).take(args.num_samples).shuffle(200000)
 
