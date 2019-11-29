@@ -60,7 +60,7 @@ def main(argv):
         return (patches, labels)
 
     patches_dataset = images_dataset.map(_split_patches).apply(tf.data.experimental.unbatch())
-    
+
     if args.threshold is not None:
         threshold = args.threshold
     else:
@@ -78,6 +78,9 @@ def main(argv):
 
     writer = tf.io.TFRecordWriter(args.output_dataset)
 
+    # Make file readable for all users
+    cutil.publish(args.output_dataset)
+
     def _encode_func(sample):
         return ctfd.encode({'patch': ctf.float_feature(sample[0].numpy().flatten()), 'label': ctf.int64_feature(sample[1].numpy())})
 
@@ -90,12 +93,6 @@ def main(argv):
     # Flush and close the writer.
     writer.flush()
     writer.close()
-
-    # Make file readable for all users
-    cutil.publish(args.output_dataset)
-
-
-
         
 
 
