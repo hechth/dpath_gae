@@ -1,18 +1,19 @@
-import sys, os, json
+import json
+import os
+import sys
+
 import git
-git_root = git.Repo('.', search_parent_directories=True).working_tree_dir
-sys.path.append(git_root)
-
-
-import packages.Utility as cutil
-import packages.Tensorflow as ctf
-import packages.Tensorflow.Model as ctfm
-import packages.Tensorflow.Image as ctfi
-
+import matplotlib.pyplot as plt
 import numpy as np
 import tensorflow as tf
 
-import matplotlib.pyplot as plt
+import packages.Tensorflow as ctf
+import packages.Tensorflow.Image as ctfi
+import packages.Tensorflow.Model as ctfm
+import packages.Utility as cutil
+
+git_root = git.Repo('.', search_parent_directories=True).working_tree_dir
+sys.path.append(git_root)
 
 rotation_layer_conf = {
     "name":"rotor",
