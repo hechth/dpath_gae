@@ -16,11 +16,11 @@ import matplotlib.pyplot as plt
 
 rotation_layer_conf = {
     "name":"rotor",
-    "input":"image_tensor",
+    "input":"angle",
     "layers":[
         {
             "type":"rotation",
-            "angle":"angle_tensor",
+            "image":"image_tensor",
             "interpolation":"BILINEAR",
             "name":"rotation_op"
         }
@@ -31,12 +31,12 @@ rotation_layer_conf = {
 def main(argv):
     with tf.Session(graph=tf.get_default_graph()).as_default() as sess:
         filename = os.path.join(git_root, 'data','images','encoder_input.png')
-        image = tf.expand_dims(ctfi.load(filename, width=32, height=32, channels=3),0)
+        image = tf.expand_dims(ctfi.load(filename, width=32, height=32, channels=3),0,name='image_tensor')
         angle = tf.convert_to_tensor(np.random.rand(1,1), dtype=tf.float32, name='angle_tensor')
-        tensors = {'image_tensor':image, 'angle_tensor': angle}
+        tensors = {'image_tensor':image, 'angle': angle}
         rotation_layer = ctfm.parse_component(tensors, rotation_layer_conf, tensors)
 
-        rotated_image = rotation_layer[2](image)
+        rotated_image = rotation_layer[2](angle)
 
         plt.imshow(sess.run(rotated_image)[0])
         plt.show()

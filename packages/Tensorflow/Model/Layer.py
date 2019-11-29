@@ -386,13 +386,13 @@ def _parse_warping(input_shape, config):
 def _parse_rotation(input_shape, config):
     graph = tf.get_default_graph()
 
-    angle = tf.squeeze(graph.get_tensor_by_name(config.get('angle') + ':0'))
+    image = graph.get_tensor_by_name(config.get('image') + ':0')
     interpolation = config.get('interpolation')
     name = config.get('name')
 
     layer = None
     variables = None
-    function = lambda x: tf.contrib.image.rotate(x, angle, interpolation=interpolation, name=name)
+    function = lambda x: tf.contrib.image.rotate(image, tf.squeeze(x), interpolation=interpolation, name=name)
     output_shape = input_shape
     return layer, variables, function, output_shape
 
