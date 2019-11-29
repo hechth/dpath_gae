@@ -382,7 +382,20 @@ def _parse_warping(input_shape, config):
     output_shape = warp_image_op.get_shape()
 
     return layer, variables, function, output_shape
-    
+
+def _parse_rotation(input_shape, config):
+    graph = tf.get_default_graph()
+
+    angle = tf.squeeze(graph.get_tensor_by_name(config.get('angle') + ':0'))
+    interpolation = config.get('interpolation')
+    name = config.get('name')
+
+    layer = None
+    variables = None
+    function = lambda x: tf.contrib.image.rotate(x, angle, interpolation=interpolation, name=name)
+    output_shape = input_shape
+    return layer, variables, function, output_shape
+
 
 def _parse_reshape(input_shape, config):
     """
@@ -519,6 +532,8 @@ def parse_layer(input_shape:list, config:dict):
         return _parse_concatenate(input_shape, config)
     elif config['type'] == 'warping':
         return _parse_warping(input_shape, config)
+    elif config['type'] == 'rotation':
+        return _parse_rotation(input_shape, config)
     else:
         layer = _layer_map[config['type']](config)
         layer.build(input_shape)
