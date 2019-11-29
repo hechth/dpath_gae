@@ -396,6 +396,18 @@ def _parse_rotation(input_shape, config):
     output_shape = input_shape
     return layer, variables, function, output_shape
 
+def _parse_translation(input_shape, config):
+    graph = tf.get_default_graph()
+
+    image = graph.get_tensor_by_name(config.get('image') + ':0')
+    interpolation = config.get('interpolation')
+    name = config.get('name')
+
+    layer = None
+    variables = None
+    function = lambda x: tf.contrib.image.translate(image, x, interpolation=interpolation, name=name)
+    output_shape = input_shape
+    return layer, variables, function, output_shape
 
 def _parse_reshape(input_shape, config):
     """
@@ -403,15 +415,15 @@ def _parse_reshape(input_shape, config):
 
     Parameters
     ----------
-        input_shape: shape of the input data as list of tf.TensorShape
-        config: dict holding new shape info.
+    input_shape: shape of the input data as list of tf.TensorShape \n
+    config: dict holding new shape info.
 
     Returns
     -------
-        layer: None
-        variables: None
-        function: function which reshapes the input
-        output_shape: shape of the output tensor
+    layer: None \n
+    variables: None \n
+    function: function which reshapes the input \n
+    output_shape: shape of the output tensor
     """
     shape_cfg = config.get('shape')
     name = config.get('name')
@@ -534,6 +546,8 @@ def parse_layer(input_shape:list, config:dict):
         return _parse_warping(input_shape, config)
     elif config['type'] == 'rotation':
         return _parse_rotation(input_shape, config)
+    elif config['type'] == 'translation':
+        return _parse_translation(input_shape, config)
     else:
         layer = _layer_map[config['type']](config)
         layer.build(input_shape)

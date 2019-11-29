@@ -3,12 +3,13 @@ import os
 import sys
 
 import git
-import matplotlib.pyplot as plt
-import numpy as np
-import tensorflow as tf
 
 git_root = git.Repo('.', search_parent_directories=True).working_tree_dir
 sys.path.append(git_root)
+
+import matplotlib.pyplot as plt
+import numpy as np
+import tensorflow as tf
 
 import packages.Tensorflow as ctf
 import packages.Tensorflow.Image as ctfi
@@ -16,16 +17,15 @@ import packages.Tensorflow.Model as ctfm
 import packages.Utility as cutil
 
 
-
-rotation_layer_conf = {
-    "name":"rotor",
-    "input":"angle",
+translation_layer_conf = {
+    "name":"translator",
+    "input":"offset",
     "layers":[
         {
-            "type":"rotation",
+            "type":"translation",
             "image":"image_tensor",
             "interpolation":"BILINEAR",
-            "name":"rotation_op"
+            "name":"translation_op"
         }
     ],
     "output":"rotated_image"
@@ -35,13 +35,13 @@ def main(argv):
     with tf.Session(graph=tf.get_default_graph()).as_default() as sess:
         filename = os.path.join(git_root, 'data','images','encoder_input.png')
         image = tf.expand_dims(ctfi.load(filename, width=32, height=32, channels=3),0,name='image_tensor')
-        angle = tf.convert_to_tensor(np.random.rand(1,1), dtype=tf.float32, name='angle_tensor')
-        tensors = {'image_tensor':image, 'angle': angle}
-        rotation_layer = ctfm.parse_component(tensors, rotation_layer_conf, tensors)
+        offset = tf.convert_to_tensor(np.random.rand(1,2), dtype=tf.float32, name='translation')
+        tensors = {'image_tensor':image, 'offset': offset}
+        translation_layer = ctfm.parse_component(tensors, translation_layer_conf, tensors)
 
-        rotated_image = rotation_layer[2](angle)
+        translated_image = translation_layer[2](offset)
 
-        plt.imshow(sess.run(rotated_image)[0])
+        plt.imshow(sess.run(translated_image)[0])
         plt.show()
 
 
