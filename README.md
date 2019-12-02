@@ -32,6 +32,21 @@ None of the C++ functionality is implemented as of now, so these are future depe
 *  Install [tensorflowCC](https://github.com/FloopCZ/tensorflow_cc).
 *  Install Qt5 v5.9.5
 
+## How To?
+
+### Create a Custom Dataset?
+The examples contained in this repository don't come with a publicly available dataset, but with multiple tools to create a dataset in the required layout. All tools required to create a matching dataset are collected [here](tools/dataset).
+
+The dataset required to train the models are expected to consist of fixed size image patches with 3 channel float data and a class label.
+
+Steps to create a custom dataset:
+1.  Collect the filenames of the image files in a tfrecords dataset using [this](tools/dataset/CollectFilenamesInDataset.py) script.
+1.1.    Make sure that all images are stored in a similar pattern where all filenames can be collected using a python glob expression.
+1.2.    Make sure all image files are in one of the supported formats. For a list of supported image formats see [here](packages/Tensorflow/Image/Image.py).
+1.3.    Make sure all images have moderate size (width < 10k, height < 10k)
+2.  Run the [preprocessing script](tools/dataset/preprocess_image_filenames_dataset.py) to load the collected image files, assign a label to them and store tiles as a binary tfrecords file.
+2.1.    
+
 ## Usage: JSON Configuration Files
 
 Models are defined using json configuration files which are passed to the program which creates the respective tf.estimator model and the operations required for training etc.

@@ -56,6 +56,7 @@ Example:
     "name":"dense_layer"
 }
 ```
+
 #### Convolutional
 A convolutional layer is specified by the number of *filters* the *kernel_size* and the *strides*. For a detailed explanation of convolutional layers and the attributes see [here](https://www.tensorflow.org/versions/r1.12/api_docs/python/tf/layers/Conv2D).
 
@@ -88,7 +89,7 @@ Example:
 ```
 
 #### Slice
-A slice layer extracts a slice from a rank 2 tensor with shape \[batch, features\]. It can be used to split a tensor into 2 sub parts by having 2 components which take the original tensor as input and add the slices as output tensors.
+A slice layer extracts a slice from a rank 2 tensor with shape \[batch, features\]. It can be used to split a tensor into 2 sub parts by having 2 components which take the original tensor as input and add the slices as output tensors. It returns a tensor slice starting at *begin* holding *size* consecutive elements.
 
 Example:
 ```json
