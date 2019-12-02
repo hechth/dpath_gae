@@ -41,11 +41,16 @@ The dataset required to train the models are expected to consist of fixed size i
 
 Steps to create a custom dataset:
 1.  Collect the filenames of the image files in a tfrecords dataset using [this](tools/dataset/CollectFilenamesInDataset.py) script.
-    1.1    Make sure that all images are stored in a similar pattern where all filenames can be collected using a python glob expression.
-    1.2    Make sure all image files are in one of the supported formats. For a list of supported image formats see [here](packages/Tensorflow/Image/Image.py).
-    1.3    Make sure all images have moderate size (width < 10k, height < 10k)
+    1.  Make sure that all images are stored in a similar pattern where all filenames can be collected using a python glob expression.
+    2.  Make sure all image files are in one of the supported formats. For a list of supported image formats see [here](packages/Tensorflow/Image/Image.py).
+    3.  Make sure all images have moderate size (width < 10k, height < 10k)
 2.  Run the [preprocessing script](tools/dataset/preprocess_image_filenames_dataset.py) to load the collected image files, assign a label to them and store tiles as a binary tfrecords file.
-    2.1    
+    1.  The arguments required for the preprocessing script are (1) name of the input dataset holding image filenames, (2) name of the output dataset, (3) the patch size, (4) the number of samples for the target dataset, (5) a comma separated list of labels, where each filename has to contain 1 or 0 of these labels, (optional)(6) a threshold for the filter function, between 0 and 1, usually 0.04 < t < 0.1, (optional)(7) a size for the images.
+    2.  Make sure to adapt the shuffle buffer sizes for your data and patch sizes.
+3.  Verify the integrity of the dataset using the [plot image from dataset](tools/visualization/plot_image_from_dataset.py) script and [estimate distribution](tools/dataset/estimate_distribution.py).
+4.  Create normalization files using the [estimate moments](tools/dataset/estimate_moments.py) tool.
+    1.  Specify the number of samples over which to estimate the moments and the axis which to use for estimation.
+    2.  In case of using 3 color RGB images, specify [0,1,2] as axis to normalize the 3 color channels, so mean and variance are length 3 vectors.
 
 ## Usage: JSON Configuration Files
 
