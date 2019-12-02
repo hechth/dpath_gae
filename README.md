@@ -259,6 +259,35 @@ This allows explicit updating of weights regarding certain losses.
 
 After having adapted the configuration, you can start training the [model](examples/models/gae/gae_model.py). The command line parameters for the script are as follows: (1) path to config file, (2) path to npy file holding estimated mean, (3) path to npy file holding estimated variance, (4) path where to store the model log files.
 
+The number of runs over the full dataset for training is specified in the config file as epochs in the dataset branch. The number of steps for which training is run is determined as *size* / *batch*.
+
+Example:
+```json
+{
+    "datasets": {
+        "training": {
+            "filename": "/sdc1/datasets/level1/train_ds_20000000_64_v3.tfrec",
+            "size": 20000000,
+            "epochs": 10
+        },
+        "batch":256,
+        "shuffle_size":250000,
+        "features":[
+            {
+                "shape": [64,64,3],
+                "key": "patch",
+                "dtype": "tf.float32"
+            },
+            {
+                "shape": [1],
+                "key": "label",
+                "dtype": "tf.int64"
+            }
+        ]
+    }
+}
+```
+
 ## Usage: JSON Configuration Files
 
 Models are defined using json configuration files which are passed to the program which creates the respective tf.estimator model and the operations required for training etc.
