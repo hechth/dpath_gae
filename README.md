@@ -52,6 +52,49 @@ Steps to create a custom dataset:
     1.  Specify the number of samples over which to estimate the moments and the axis which to use for estimation.
     2.  In case of using 3 color RGB images, specify [0,1,2] as axis to normalize the 3 color channels, so mean and variance are length 3 vectors.
 
+### Create A Model with Custom Configuration?
+Creating a custom model architecture which follows pattern described in the [publication](http://home.in.tum.de/~hechth/hechth_dpath.pdf) requires costimizing a configuration file. The basic [GAE model](examples/models/gae/gae_model.py) example comes with an example configuration for patch size 32 and 64, using a resnet_v2 block based encoder, a sampler and some preconfigured summaries for tensorboard. The following explanations will be based on the 32 size configuration.
+
+#### Adapt the Dataset
+After creating a custom dataset, adapt the dataset part of the configuration file.
+Example config for dataset at "/home/xyz/ds_32_1000.tfrec" with patch_size 32, 1000 samples for training for 10 epochs with a batch size of 10 and a shuffle buffer of size 1000.
+
+The [preprocess image filenames dataset script](tools/dataset/preprocess_image_filenames_dataset.py) stores the image patch feature under the key 'patch' and the label under the key 'label'.
+
+```json
+{
+    "datasets": {
+        "training": {
+            "filename": "/home/xyz/ds_32_1000.tfrec",
+            "size":1000 ,
+            "epochs": 10
+        },
+        "batch":10,
+        "shuffle_size":1000,
+        "features":[
+            {
+                "shape": [32,32,3],
+                "key": "patch",
+                "dtype": "tf.float32"
+            },
+            {
+                "shape": [1],
+                "key": "label",
+                "dtype": "tf.int64"
+            }
+        ]
+    },
+    ...
+}
+```
+
+#### Adapt the Hyperparameters
+The hyperparameters for the model are the *beta* factor for the KL-divergence based latent loss, *alpha* and *delta*, which control the supervised classification and adversarial loss terms. Values for *beta* should be chosen 5 < *beta* < 20. For *alpha* and *delta*, 1 < *alpha (delta)* < 10.
+
+### How to train the Model?
+
+After having adapted the configuration, you can start training the [model](examples/models/gae/gae_model.py). The command line parameters for the script are as follows: (1) path to config file, (2) path to npy file holding estimated mean, (3) path to npy file holding estimated variance, (4) path where to store the model log files.
+
 ## Usage: JSON Configuration Files
 
 Models are defined using json configuration files which are passed to the program which creates the respective tf.estimator model and the operations required for training etc.
