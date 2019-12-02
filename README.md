@@ -84,11 +84,54 @@ def main(argv):
     classifier = classifier.train(input_fn=train_func, steps=10000)
 ```
 
+For an example how this is used in a model see [here](examples/models/autoencoder/autoencoder.py).
+
 ### Create A Model with Custom Configuration?
 Creating a custom model architecture which follows pattern described in the [publication](http://home.in.tum.de/~hechth/hechth_dpath.pdf) requires costimizing a configuration file. The basic [GAE model](examples/models/gae/gae_model.py) example comes with an example configuration for patch size 32 and 64, using a resnet_v2 block based encoder, a sampler and some preconfigured summaries for tensorboard. The following explanations will be based on the 32 size configuration.
 
 #### Adapt the Dataset
 If you're using a "in script" dataset - see the MNIST example - you can skip this step.
+
+Dataset preparation can be implemented oneself by implementing the function passed to tf.Estimator.train(...).
+
+```python
+def train_fn(args):
+    # Load and preprocess dataset.
+    # dataset = tf.data.TFRecordDataset(...)
+    # dataset = dataset.map(...)
+    return dataset
+
+def main(argv):
+    # ...
+    classifier.train(input_fn=train_fn, steps=steps)
+    # ...
+```
+
+Another option is to specify the dataset in the JSON configuration file, this is illustrated in an [example](examples/dataset).
+
+```json
+{ 
+    "datasets": {
+        "training": {
+            "filename": "examples/dataset/training_ds.tfrecords",
+            "size": 100000,
+            "operations": [ "..." ]
+        },
+        "validation": { "..." },
+        "test": { "..." },
+        "batch":200,
+        "features":[ "..." ]
+    }
+}
+```
+
+Fields describing individual datasets which can be populated are *training*, *validation* and *test*.
+Currently, only *training* is supported.
+
+Each dataset contains the *filename*, the number of samples to extract from this dataset as *size*, the number of *steps* to run on this dataset and an optional array of *operations* to run in the preprocessing.
+
+Entries valid for all datasets are the *batch* size to use and the *features* of the dataset on disk, a list of triples containing of *key*, *shape* and *dtype*, similar to the features defined as model inputs.
+Note that the label has to be defined as a feature with the *key* "label".
 
 After creating a custom dataset, adapt the dataset part of the configuration file.
 Example config for dataset at "/home/xyz/ds_32_1000.tfrec" with patch_size 32, 1000 samples for training for 10 epochs with a batch size of 10 and a shuffle buffer of size 1000.
@@ -139,6 +182,63 @@ Example:
 ```
 
 #### Adapt the Architecture
+
+The model is specified by its *inputs* and *components*.
+
+```json
+{
+    "model": {
+        "inputs": { "..." },           
+        "components":[ "..." ]
+    }
+}
+```
+The *inputs* are supposed to have the following structure:
+
+```json
+{
+    "inputs": {
+        "features":[
+            {
+                "shape": [1],
+                "key": "val",
+                "dtype": "tf.float32"
+            }
+        ],
+        "labels": {
+            "shape": [1],
+            "dtype": "tf.float32"
+        }
+    }
+}
+```
+
+The input *features* to the model are an array, each element being composed of *shape*, *key* and *dtype* information. The second field is the labels, which only support a single entry now defined by *shape* and *dtype*.
+The second part of the model are its *components*.
+
+```json
+{
+    "components":[
+        {
+            "name":"network",
+            "input": "val",
+            "layers": [ "..." ],
+            "output":"logits"
+        }
+    ]
+}
+```
+
+A *component* is defined by its *name*, *input*, the *layers* and its *output*.
+
+The *input* of a component is the *key* of a feature describes in the model *inputs* or the name defined by the *output* field of a preceding component. The *output* field therefore defines the key under which the output values of this component can be accessed.
+*Layers* is an array, each entry defining a layer in the model. The layers are connected in the ordering in which they are defined in the array.
+
+Which fields are used to define properties regarding layers is described in [Layer.py](packages/Tensorflow/Model/Layer.py).
+A detailed list of which layers can be specified and how is available [here](packages/Tensorflow/Model)
+
+For examples of how to specify possible configurations and the corresponding python code to create the models are given in [Examples/Models](examples/models).
+
 
 The model architecture is mainly determined by the components. The architecture described in the publication consists of the following components:
 1.  Encoder
@@ -317,115 +417,6 @@ Example:
     }
 }
 ```
-
-## Usage: JSON Configuration Files
-
-Models are defined using json configuration files which are passed to the program which creates the respective tf.estimator model and the operations required for training etc.
-
-### Datasets
-
-Dataset preparation can be implemented oneself by implementing the function passed to tf.Estimator.train(...).
-
-```python
-def train_fn(args):
-    # Load and preprocess dataset.
-    # dataset = tf.data.TFRecordDataset(...)
-    # dataset = dataset.map(...)
-    return dataset
-
-def main(argv):
-    # ...
-    classifier.train(input_fn=train_fn, steps=steps)
-    # ...
-```
-
-Another option is to specify the dataset in the JSON configuration file, this is illustrated in an [example](examples/dataset).
-
-```json
-{ 
-    "datasets": {
-        "training": {
-            "filename": "examples/dataset/training_ds.tfrecords",
-            "size": 100000,
-            "operations": [ "..." ]
-        },
-        "validation": { "..." },
-        "test": { "..." },
-        "batch":200,
-        "features":[ "..." ]
-    }
-}
-```
-
-Fields describing individual datasets which can be populated are *training*, *validation* and *test*.
-Currently, only *training* is supported.
-
-Each dataset contains the *filename*, the number of samples to extract from this dataset as *size*, the number of *steps* to run on this dataset and an optional array of *operations* to run in the preprocessing.
-
-Entries valid for all datasets are the *batch* size to use and the *features* of the dataset on disk, a list of triples containing of *key*, *shape* and *dtype*, similar to the features defined as model inputs.
-Note that the label has to be defined as a feature with the *key* "label".
-
-### Model
-The model is specified by its *inputs* and *components*.
-
-```json
-{
-    "model": {
-        "inputs": { "..." },           
-        "components":[ "..." ]
-    }
-}
-```
-#### Inputs
-The *inputs* are supposed to have the following structure:
-
-```json
-{
-    "inputs": {
-        "features":[
-            {
-                "shape": [1],
-                "key": "val",
-                "dtype": "tf.float32"
-            }
-        ],
-        "labels": {
-            "shape": [1],
-            "dtype": "tf.float32"
-        }
-    }
-}
-```
-
-The input *features* to the model are an array, each element being composed of *shape*, *key* and *dtype* information. The second field is the labels, which only support a single entry now defined by *shape* and *dtype*.
-
-#### Components
-The second part of the model are its *components*.
-
-```json
-{
-    "components":[
-        {
-            "name":"network",
-            "input": "val",
-            "layers": [ "..." ],
-            "output":"logits"
-        }
-    ]
-}
-```
-
-A *component* is defined by its *name*, *input*, the *layers* and its *output*.
-
-The *input* of a component is the *key* of a feature describes in the model *inputs* or the name defined by the *output* field of a preceding component. The *output* field therefore defines the key under which the output values of this component can be accessed.
-*Layers* is an array, each entry defining a layer in the model. The layers are connected in the ordering in which they are defined in the array.
-
-Which fields are used to define properties regarding layers is described in [Layer.py](packages/Tensorflow/Model/Layer.py).
-A detailed list of which layers can be specified and how is available [here](packages/Tensorflow/Model)
-
-For examples of how to specify possible configurations and the corresponding python code to create the models are given in [Examples/Models](examples/models).
-
-
 
 ## Examples
 
