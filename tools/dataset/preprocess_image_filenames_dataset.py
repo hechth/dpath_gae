@@ -63,7 +63,7 @@ def main(argv):
         result = label > -1
         return result
         
-    images_dataset = images_dataset.filter(_filter_func_label).shuffle(500)
+    images_dataset = images_dataset.filter(_filter_func_label).shuffle(100)
     # Extract image patches
 
     #for sample in tfe.Iterator(images_dataset):
