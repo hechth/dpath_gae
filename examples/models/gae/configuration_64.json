@@ -1,13 +1,12 @@
 {
     "datasets": {
         "training": {
-            "filename": "/sdc1/datasets/level1/train_ds_20000000_64_v2.tfrec",
+            "filename": "/sdc1/datasets/level1/train_ds_20000000_64_v3.tfrec",
             "size": 20000000,
-            "steps":100000,
-            "epochs": 1
+            "epochs": 10
         },
         "batch":256,
-        "shuffle_size":300000,
+        "shuffle_size":250000,
         "features":[
             {
                 "shape": [64,64,3],
