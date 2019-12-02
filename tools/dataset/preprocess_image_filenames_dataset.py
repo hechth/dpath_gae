@@ -40,10 +40,20 @@ def main(argv):
         default_value=-1
     )
     
-    filename_dataset = tf.data.TFRecordDataset(args.input_dataset, num_parallel_reads=8).map(_decode_example_filename)
+    filename_dataset = tf.data.TFRecordDataset(args.input_dataset, num_parallel_reads=8).map(_decode_example_filename).shuffle(100000)
+
+    functions = [tf.Variable(label, name='const_'+ label).value for label in args.labels]
+    
     
     def _extract_label(filename):
-        return tf.case([(tf.not_equal(tf.size(tf.string_split([filename],"")), tf.size(tf.string_split([tf.regex_replace(filename, '/'+ label + '/', "")]))) ,lambda : tf.constant(label)) for label in args.labels], default=None)
+        #base_size = tf.size(tf.string_split([filename],""))
+        #predicates = [tf.equal(base_size, tf.size(tf.string_split([tf.regex_replace(filename, "/"+ label + "/", "")])))  for label in args.labels]
+        
+        match = [tf.math.reduce_any(tf.strings.regex_full_match(tf.string_split([filename],'/').values,label)) for label in args.labels]        
+        pred_fn_pairs = list(zip(match,functions))
+        return tf.case(pred_fn_pairs, default=None, exclusive=True)
+
+
 
     # Load images and extract the label from the filename
     if args.image_size is not None:
@@ -51,6 +61,7 @@ def main(argv):
     else:
         images_dataset = filename_dataset.map(lambda feature: {'image': ctfi.load(feature['filename'], channels=3), 'label': labels_table.lookup(_extract_label(feature['filename']))})
 
+    images_dataset = images_dataset.shuffle(500)
     # Extract image patches
 
     def _split_patches(features):
@@ -74,7 +85,7 @@ def main(argv):
         var_per_pixel = (variation / num_pixels)
         return var_per_pixel > threshold
 
-    dataset = patches_dataset.filter(lambda patch, label: _filter_func((patch, label))).take(args.num_samples).shuffle(200000)
+    dataset = patches_dataset.filter(lambda patch, label: _filter_func((patch, label))).take(args.num_samples).shuffle(100000)
 
     writer = tf.io.TFRecordWriter(args.output_dataset)
 
