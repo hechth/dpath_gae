@@ -91,6 +91,133 @@ The [preprocess image filenames dataset script](tools/dataset/preprocess_image_f
 #### Adapt the Hyperparameters
 The hyperparameters for the model are the *beta* factor for the KL-divergence based latent loss, *alpha* and *delta*, which control the supervised classification and adversarial loss terms. Values for *beta* should be chosen 5 < *beta* < 20. For *alpha* and *delta*, 1 < *alpha (delta)* < 10.
 
+The *latent_space_size* determines the size of the latent code, BUT it has to be manually also set as number of dims in the sampling layer. The entry in the config file is required for the correct dimensionsons for the latent loss.
+
+Example:
+```json
+{
+    ...,
+    "model": {
+        "inputs":{...},
+        "parameters": {
+            "beta": 16,
+            "alpha": 12,
+            "delta": 12,
+            "latent_space_size":18
+        },
+        "components": [...],
+        ...
+    },
+    ...
+}
+```
+
+#### Adapt the Architecture
+
+The model architecture is mainly determined by the components. The architecture described in the publication consists of the following components:
+1.  Encoder
+2.  Sampler
+3.  Classifier
+4.  Discriminator
+5.  Decoder
+
+The model architecture as described in the config file also contains these components:
+
+```json
+{
+    ...,
+    "components": [      
+        {
+            "name":"encoder",
+            "input": "patch",
+            "layers": [...],
+            "output":"encoded_patch"
+        },
+        {
+            "name":"sampler",
+            "input":"encoded_patch",
+            "layers": [...],
+            "output":["distribution", "code"]
+        },
+        {
+            "name":"classifier",
+            "input": "code",
+            "layers":[...],
+            "output":"predictions_classifier"
+        },
+        {
+            "name":"discriminator",
+            "input": "code",
+            "layers":[...],
+            "output":"predictions_discriminator"
+        },
+        {
+            "name": "decoder",
+            "input":"code",
+            "layers": [...],
+            "output":"logits"
+        }
+    ],
+    ...
+}
+```
+
+If the names of inputs or outputs of the different components are changed, the [script](examples/models/gae/gae_model.py) has to be adapted as well. Usually, adapting the layers in a component is enough. The default architecture uses resnet_v2 blocks for the encoder, followed by batch normalization, activation and max pooling.
+
+```json
+{
+    "name":"encoder",
+    "input": "patch",
+    "layers": [
+        {
+            "type":"resnet_v2_block",
+            "stride":1,
+            "base_depth":16,
+            "num_units": 2
+        },
+        {
+            "type":"batch_norm",
+            "axis": [1,2,3]
+        },
+        {
+            "type":"activation",
+            "function":"tf.nn.relu"
+        },                    
+        {
+            "type":"max_pool",
+            "pool_size":[2,2],
+            "strides":[2,2]
+        },
+        ...
+    ],
+    "output":"encoded_patch"
+}
+```
+
+The number of these blocks is usually equal to the log2 of the patch size to reduce the spatial dimensions to 1. Model complexity can be increased by changing the *base_depth* of the resnet_v2_block while the depth can be increased by increasing *num_units*.
+
+The sampler contains a single sampling layer, it can potentially also be integrated into the encoder, while *dims* controls the latent space size. The difference between "type":"sampler" and "type":"sampler_v2" is that the base sampler produces a diagonal covariance matrix while sampler_v2 uses a full lower triangular covariance matrix.
+
+```json
+{
+    "name":"sampler",
+    "input":"encoded_patch",
+    "layers": [
+        {
+            "type":"sampler_v2",
+            "dims":18,
+            "name":"z"
+        }
+    ],
+    "output":["distribution", "code"]
+}
+```
+
+The sampler outputs are the tf.contrib.distributions.MultivariateNormalTriL distribution and the sample drawn from besaid distribution.
+
+
+The classifier and discrimator both extract only their respective parts of the latent code and have a single dense layer with *num_classes* units.
+
 ### How to train the Model?
 
 After having adapted the configuration, you can start training the [model](examples/models/gae/gae_model.py). The command line parameters for the script are as follows: (1) path to config file, (2) path to npy file holding estimated mean, (3) path to npy file holding estimated variance, (4) path where to store the model log files.
