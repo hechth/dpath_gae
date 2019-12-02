@@ -208,8 +208,52 @@ The sampler contains a single sampling layer, it can potentially also be integra
 
 The sampler outputs are the tf.contrib.distributions.MultivariateNormalTriL distribution and the sample drawn from besaid distribution.
 
-
 The classifier and discrimator both extract only their respective parts of the latent code and have a single dense layer with *num_classes* units.
+
+```json
+{
+    "name":"classifier",
+    "input": "code",
+    "layers":[
+        {
+            "type":"flatten"
+        },
+        {
+            "type":"slice",
+            "begin":[0],
+            "size":[4],
+            "name:":"z_stain"
+        },
+        {
+            "type":"dense",
+            "units":9,
+            "activation":"tf.nn.sigmoid",
+            "trainable": false
+        }
+    ],
+    "output":"predictions_classifier"
+}
+```
+
+The decoder uses plain deconvolution and average upsampling layers instead of the resnet_v2 blocks architecture since it doesn't provide a transposed implementation out of the box.
+
+The decoder, classifier and discriminator layers are set to be non-trainable, which means they are not included in the default training step. All variables associated to these layers are collected and updated in additional training ops.
+
+```python
+# Rest of my_model_fn
+train_op_encoder = optimizer.minimize(loss, global_step=tf.train.get_global_step())
+train_op_discriminator = optimizer.minimize(discriminator_loss, var_list=[components['discriminator'][1]])
+train_op_classifier = optimizer.minimize(classifier_loss, var_list=[components['classifier'][1]])
+
+decoder_variables = components['decoder'][1]
+train_op_decoder = optimizer.minimize(reconstr_loss, var_list=decoder_variables)
+
+# Create combined training op
+train_op = tf.group([train_op_encoder,train_op_discriminator,train_op_classifier,train_op_decoder])
+```
+
+This allows explicit updating of weights regarding certain losses.
+
 
 ### How to train the Model?
 
