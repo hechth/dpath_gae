@@ -35,6 +35,8 @@ None of the C++ functionality is implemented as of now, so these are future depe
 ## How To?
 
 ### Create a Custom Dataset?
+
+#### Custom Dataset from Image Files
 The examples contained in this repository don't come with a publicly available dataset, but with multiple tools to create a dataset in the required layout. All tools required to create a matching dataset are collected [here](tools/dataset).
 
 The dataset required to train the models are expected to consist of fixed size image patches with 3 channel float data and a class label.
@@ -52,10 +54,42 @@ Steps to create a custom dataset:
     1.  Specify the number of samples over which to estimate the moments and the axis which to use for estimation.
     2.  In case of using 3 color RGB images, specify [0,1,2] as axis to normalize the 3 color channels, so mean and variance are length 3 vectors.
 
+#### MNIST Dataset
+
+The model can also be trained and run on the MNIST dataset with minor changes.
+Since the whole configuration file specification only influences the training function required for the tf.Estimator to run training, providing your own training function can override the whole dataset loading and preprocessing pipeline.
+
+```python
+def train_func():
+    (x_train, y_train), (x_test, y_test) = tf.keras.datasets.mnist.load_data()
+
+    x_train = x_train.astype('float32') / 255
+
+    # Reshape input data from (28, 28) to (28, 28, 1)
+    w, h = 28, 28
+    x_train = x_train.reshape(x_train.shape[0], w, h, 1)
+
+    # One-hot encode the labels
+    y_train = tf.keras.utils.to_categorical(y_train, 10)
+    
+    train_ds = tf.data.Dataset.zip((tf.data.Dataset.from_tensor_slices(x_train),tf.data.Dataset.from_tensor_slices(y_train)))
+    train_ds = train_ds.map(lambda image, label: ({"val": image }, label))
+
+    train_ds = train_ds.repeat().shuffle(60000).batch(10)
+    return train_ds
+
+def main(argv):
+    # Do stuff, initialize model, etc.
+
+    classifier = classifier.train(input_fn=train_func, steps=10000)
+```
+
 ### Create A Model with Custom Configuration?
 Creating a custom model architecture which follows pattern described in the [publication](http://home.in.tum.de/~hechth/hechth_dpath.pdf) requires costimizing a configuration file. The basic [GAE model](examples/models/gae/gae_model.py) example comes with an example configuration for patch size 32 and 64, using a resnet_v2 block based encoder, a sampler and some preconfigured summaries for tensorboard. The following explanations will be based on the 32 size configuration.
 
 #### Adapt the Dataset
+If you're using a "in script" dataset - see the MNIST example - you can skip this step.
+
 After creating a custom dataset, adapt the dataset part of the configuration file.
 Example config for dataset at "/home/xyz/ds_32_1000.tfrec" with patch_size 32, 1000 samples for training for 10 epochs with a batch size of 10 and a shuffle buffer of size 1000.
 
@@ -95,15 +129,11 @@ The *latent_space_size* determines the size of the latent code, BUT it has to be
 Example:
 ```json
 {
-    "model": {
-        "inputs":{},
-        "parameters": {
-            "beta": 16,
-            "alpha": 12,
-            "delta": 12,
-            "latent_space_size":18
-        },
-        "components": [],
+    "parameters": {
+        "beta": 16,
+        "alpha": 12,
+        "delta": 12,
+        "latent_space_size":18
     }
 }
 ```
@@ -259,7 +289,7 @@ This allows explicit updating of weights regarding certain losses.
 
 After having adapted the configuration, you can start training the [model](examples/models/gae/gae_model.py). The command line parameters for the script are as follows: (1) path to config file, (2) path to npy file holding estimated mean, (3) path to npy file holding estimated variance, (4) path where to store the model log files.
 
-The number of runs over the full dataset for training is specified in the config file as epochs in the dataset branch. The number of steps for which training is run is determined as *size* / *batch*.
+The number of runs over the full dataset for training is specified in the config file as epochs in the dataset branch. The number of steps for which training is run is determined as *size* / *batch*. The *batch* options controls the batch size used for training.
 
 Example:
 ```json
