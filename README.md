@@ -84,7 +84,6 @@ The [preprocess image filenames dataset script](tools/dataset/preprocess_image_f
             }
         ]
     },
-    ...
 }
 ```
 
@@ -96,19 +95,16 @@ The *latent_space_size* determines the size of the latent code, BUT it has to be
 Example:
 ```json
 {
-    ...,
     "model": {
-        "inputs":{...},
+        "inputs":{},
         "parameters": {
             "beta": 16,
             "alpha": 12,
             "delta": 12,
             "latent_space_size":18
         },
-        "components": [...],
-        ...
-    },
-    ...
+        "components": [],
+    }
 }
 ```
 
@@ -125,40 +121,38 @@ The model architecture as described in the config file also contains these compo
 
 ```json
 {
-    ...,
     "components": [      
         {
             "name":"encoder",
             "input": "patch",
-            "layers": [...],
+            "layers": [],
             "output":"encoded_patch"
         },
         {
             "name":"sampler",
             "input":"encoded_patch",
-            "layers": [...],
+            "layers": [],
             "output":["distribution", "code"]
         },
         {
             "name":"classifier",
             "input": "code",
-            "layers":[...],
+            "layers":[],
             "output":"predictions_classifier"
         },
         {
             "name":"discriminator",
             "input": "code",
-            "layers":[...],
+            "layers":[],
             "output":"predictions_discriminator"
         },
         {
             "name": "decoder",
             "input":"code",
-            "layers": [...],
+            "layers": [],
             "output":"logits"
         }
-    ],
-    ...
+    ]
 }
 ```
 
@@ -187,8 +181,7 @@ If the names of inputs or outputs of the different components are changed, the [
             "type":"max_pool",
             "pool_size":[2,2],
             "strides":[2,2]
-        },
-        ...
+        }
     ],
     "output":"encoded_patch"
 }
