@@ -30,7 +30,8 @@ def main(argv):
 
     #reconstructed = tf.nn.conv2d_transpose(dxr + dyr, tf.ones([3,3,1,1], dtype=tf.float32),[1,32,32,1],strides,padding)# + tf.nn.conv2d(dy, tf.ones([3,3,1,3], dtype=tf.float32),strides,padding)
     
-    reconstructed = tf.concat([tf.nn.conv2d_transpose(c, tf.ones([3,3,1,1], dtype=tf.float32),[1,32,32,1],strides,padding) for c in tf.split(dx+dy,3,3)],3)
+    reconstructed = tf.concat([tf.nn.conv2d_transpose(c, tf.ones([1,32,1,1], dtype=tf.float32),[1,32,32,1],strides,padding) for c in tf.split(dx,3,3)],3)
+    reconstructed += tf.concat([tf.nn.conv2d_transpose(c, tf.ones([32,1,1,1], dtype=tf.float32),[1,32,32,1],strides,padding) for c in tf.split(dy,3,3)],3)
     fig, ax = plt.subplots(2,2)
     ax[0,0].imshow(image[0].numpy())
     ax[0,1].imshow(reconstructed[0].numpy())
