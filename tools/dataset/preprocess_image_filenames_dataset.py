@@ -34,15 +34,12 @@ def main(argv):
 
     args = parser.parse_args()
 
-    labels_table = tf.contrib.lookup.index_table_from_tensor(
-        mapping=args.labels,
-        num_oov_buckets=1,
-        default_value=-1
-    )
+    labels_table = tf.contrib.lookup.index_table_from_tensor(mapping=args.labels)
     
     filename_dataset = tf.data.TFRecordDataset(args.input_dataset, num_parallel_reads=8).map(_decode_example_filename).shuffle(100000)
 
     functions = [tf.Variable(label, name='const_'+ label).value for label in args.labels]
+    false_fn = tf.Variable('None', name='none_label').value
     
     
     def _extract_label(filename):
@@ -51,7 +48,7 @@ def main(argv):
         
         match = [tf.math.reduce_any(tf.strings.regex_full_match(tf.string_split([filename],'/').values,label)) for label in args.labels]        
         pred_fn_pairs = list(zip(match,functions))
-        return tf.case(pred_fn_pairs, default=None, exclusive=True)
+        return tf.case(pred_fn_pairs, default=false_fn, exclusive=True)
 
 
 
@@ -61,8 +58,16 @@ def main(argv):
     else:
         images_dataset = filename_dataset.map(lambda feature: {'image': ctfi.load(feature['filename'], channels=3), 'label': labels_table.lookup(_extract_label(feature['filename']))})
 
-    images_dataset = images_dataset.shuffle(500)
+    def _filter_func_label(features):
+        label = features['label']
+        result = label > -1
+        return result
+        
+    images_dataset = images_dataset.filter(_filter_func_label).shuffle(500)
     # Extract image patches
+
+    #for sample in tfe.Iterator(images_dataset):
+    #    print(sample['label'])
 
     def _split_patches(features):
         patches = ctfi.extract_patches(features['image'], args.patch_size)
