@@ -26,6 +26,14 @@ The registration examples require a trained model since they use the latent spac
 
 Both methods - symmetric and non-symmetric - rely on the [tf.contrib.image.sparse_image_warp](https://www.tensorflow.org/versions/r1.12/api_docs/python/tf/contrib/image/sparse_image_warp) function which takes an image as well as two sets of control points, outputting a deformation field and the warped image.
 
+The registration procedure follows these steps:
+1.  Extract (overlapping) patches with fixed size and stride from fixed and moving image (or both, in symmetric version).
+2.  Run inference on all patches to get latent representations as distributions over latent space.
+3.  Compute loss as distance between distributions of patches at same spatial positions.
+4.  Minimize image distance by optimizing the transformation parameters - the control point positions - and repeat.
+
+Intermediate results are displayed using pyplot. The x shaped marks indicate the positions of the control points where the input image is sampled.
+
 ### Symmetric
 
 The symmetric registration optimizes two sets of control points, one over each image and warps both images to a common set of fixed, regular target points.
