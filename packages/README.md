@@ -15,4 +15,5 @@ List of packages:
     *   [Image](Tensorflow/Image)
     *   [Dataset](Tensorflow/Dataset)
     *   [Model](Tensorflow/Model)
+    *   [Tensorboard](Tensorflow/Tensorboard)
 *   [Utility](Utility)
