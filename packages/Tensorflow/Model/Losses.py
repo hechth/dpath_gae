@@ -34,3 +34,18 @@ def multivariate_latent_loss(mean, covariance):
     prior = tf.contrib.distributions.MultivariateNormalFullCovariance(prior_mean, prior_covariance)
     kl_div = X.kl_divergence(prior)
     return kl_div
+
+def deformation_smoothness_loss(flow):
+    """
+    Computes a deformation smoothness based loss as described here:
+    https://link.springer.com/content/pdf/10.1007%2F978-3-642-33418-4_16.pdf
+    """
+
+    dx, dy = tf.image.image_gradients(flow)
+
+    dx2, dxy = tf.image.image_gradients(dx)
+    dyx, dy2 = tf.image.image_gradients(dy)
+
+    integral = tf.square(dx2) + tf.square(dy2) + tf.square(dxy) + tf.square(dyx)
+    loss = tf.reduce_sum(integral)
+    return loss
