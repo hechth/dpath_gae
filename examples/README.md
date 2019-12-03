@@ -43,3 +43,7 @@ The benefit of this approach is that it doesn't assume correctness of a single i
 ### Non-symmetric
 
 The non-symmetric warping considers one image as fixed target image and the positions of the control points over the moving image are optimized to reduce the distance to the fixed image.
+
+![Non-symmetric](../data/images/Figure_1.png)
+
+Figure shows non-symmetric warping in order to register a rotated version of an image patch to itself.
