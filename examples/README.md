@@ -17,3 +17,21 @@ The main model system which is described [here](gae). An overview is also given 
 
 The simple model example illustrates how to create a model with a single *component* and how to write the code for the model.
 
+
+## Registration
+
+The registration examples require a trained model since they use the latent space representation of image patches as similarity measurement for optimization of transformation parameters.
+
+![Multi Stain Registration](../data/images/reg_1_epoch.png)
+
+Both methods - symmetric and non-symmetric - rely on the [tf.contrib.image.sparse_image_warp](https://www.tensorflow.org/versions/r1.12/api_docs/python/tf/contrib/image/sparse_image_warp) function which takes an image as well as two sets of control points, outputting a deformation field and the warped image.
+
+### Symmetric
+
+The symmetric registration optimizes two sets of control points, one over each image and warps both images to a common set of fixed, regular target points.
+
+The benefit of this approach is that it doesn't assume correctness of a single image and is *theoretically* scalable to any number of images to be registered. Practically, it gives the algorithm more freedom in choosing parameters but tends to find suboptimal solutions by introducing strong deformations on both images which yield a good fit of the warped images.
+
+### Non-symmetric
+
+The non-symmetric warping considers one image as fixed target image and the positions of the control points over the moving image are optimized to reduce the distance to the fixed image.
