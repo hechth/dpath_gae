@@ -431,3 +431,9 @@ Example:
 
 The [examples](examples) folder contains functionality which illustrates how to use this project as well as the main models.
 For a detailed description about the individual examples see the [ReadMe](examples).
+
+## Packages
+
+The packages contain custom functionality used in this project to serve as an API providing mostly convenience wrappers. Functions to manipulate images are collected in the [Image package](packages/Tensorflow/Image), dataset related operations are part of the [Dataset package](packages/Tensorflow/Dataset) and everything related to layers and model configuration is contained in the [Model package](packages/Tensorflow/Model).
+
+The model package documentation also contains a detailed list of possible specifications for layers which can be used in components.
