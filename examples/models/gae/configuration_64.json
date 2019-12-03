@@ -1,9 +1,9 @@
 {
     "datasets": {
         "training": {
-            "filename": "/sdc1/datasets/level1/train_ds_20000000_64_v3.tfrec",
+            "filename": "/sdc1/datasets/level1/train_ds_20000000_64_0.tfrec",
             "size": 20000000,
-            "epochs": 10
+            "epochs": 5
         },
         "batch":256,
         "shuffle_size":250000,
@@ -37,11 +37,11 @@
             }
         },
         "parameters": {
-            "beta": 16,
-            "alpha": 12,
-            "delta": 12,
-            "stain_code_size":4,
-            "latent_space_size":18
+            "beta": 6,
+            "alpha": 2,
+            "delta": 4,
+            "stain_code_size":8,
+            "latent_space_size":40
         },
         "components": [      
             {
@@ -174,7 +174,7 @@
                 "layers": [
                     {
                         "type":"sampler_v2",
-                        "dims":18,
+                        "dims":40,
                         "name":"z"
                     }
                 ],
@@ -190,7 +190,7 @@
                     {
                         "type":"slice",
                         "begin":[0],
-                        "size":[4],
+                        "size":[8],
                         "name:":"z_stain"
                     },
                     {
@@ -211,8 +211,8 @@
                     },
                     {
                         "type":"slice",
-                        "begin":[4],
-                        "size":[14],
+                        "begin":[8],
+                        "size":[32],
                         "name:":"z_structure"
                     },
                     {
@@ -230,7 +230,7 @@
                 "layers": [
                     {
                         "type":"reshape",
-                        "shape":[1,1,18]
+                        "shape":[1,1,40]
                     },                    
                     {
                         "type":"conv",
@@ -377,7 +377,7 @@
         "embeddings": {
             "width": 64,
             "height": 64,
-            "stain_code_size": 4
+            "stain_code_size": 8
         }
     }
 }
