@@ -34,12 +34,21 @@ None of the C++ functionality is implemented as of now, so these are future depe
 
 ## How To?
 
+The main part of the project is the [gae_model.py](examples/models/gae/gae_model.py) script for training a custom model. The model architecture, as well as the input dataset is described in a JSON configuration file which is parsed to build the model. The model is implemented using the `tf.Estimator` API and expects a `tf.data.TFRecordsDataset`.
+
+So in order to use the script, you have to follow these steps:
+1.  Create your own dataset as described below.
+2.  Adapt the dataset part of the configuration script for your dataset as well as the input part of the model configuration.
+3.  Adapt the model architecture (encoder/decoder layers) to your data.
+4.  Adapt the hyperparameters and embedding configuration.
+5.  Train your model.
+
 ### Create a Custom Dataset?
 
 #### Custom Dataset from Image Files
 The examples contained in this repository don't come with a publicly available dataset, but with multiple tools to create a dataset in the required layout. All tools required to create a matching dataset are collected [here](tools/dataset).
 
-The dataset required to train the models are expected to consist of fixed size image patches with 3 channel float data and a class label.
+The dataset required to train the models are expected to consist of fixed size image patches with 3 channel float data and a class label per image patch.
 
 Steps to create a custom dataset:
 1.  Collect the filenames of the image files in a tfrecords dataset using [this](tools/dataset/CollectFilenamesInDataset.py) script.
