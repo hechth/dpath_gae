@@ -429,4 +429,5 @@ Example:
 
 ## Examples
 
-The [examples](examples) folder contains functionality which illustrates how to use this project.
+The [examples](examples) folder contains functionality which illustrates how to use this project as well as the main models.
+For a detailed description about the individual examples see the [ReadMe](examples).
