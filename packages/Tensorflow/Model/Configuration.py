@@ -14,7 +14,7 @@ import packages.Utility as cutil
 from .Layer import parse_feature
 from .Layer import parse_layer
 
-ops_keywords = ['function', 'activation', 'kernel_initializer']
+ops_keywords = ['function', 'activation', 'kernel_initializer','bias_initializer']
 
 def parse_json(filename: str) -> dict:
     """
