@@ -1,0 +1,500 @@
+{
+    "datasets": {
+        "training": {
+            "filename": "/home/hecht/build/thesis/datasets/train_ds_40000000_32_0.tfrec",
+            "size": 40000000,
+            "steps":100000,
+            "epochs": 1
+        },
+        "batch":256,
+        "shuffle_size":500000,
+        "features":[
+            {
+                "shape": [32,32,3],
+                "key": "patch",
+                "dtype": "tf.float32"
+            },
+            {
+                "shape": [1],
+                "key": "label",
+                "dtype": "tf.int64"
+            }
+        ]
+    },
+    "model": {
+        "inputs":{
+            "features":[
+                {
+                    "shape": [32,32,3],
+                    "key": "patch",
+                    "dtype": "tf.float32"
+                }
+            ],
+            "labels": {
+                "shape": [1],
+                "dtype": "tf.int64",
+                "num_classes": 9,
+                "names": ["HE","CD3","CD8","PD1","FOXP3","CD45RO","CAIX","PDL1","CD68"]
+            }
+        },
+        "components": [
+            {
+                "name":"encoder",
+                "input": "patch",
+                "layers": [
+                    {
+                        "type":"resnet_v2_block",
+                        "stride":1,
+                        "base_depth":16,
+                        "num_units": 2
+                    },
+                    {
+                        "type":"batch_norm",
+                        "axis": [1,2,3]
+                    },
+                    {
+                        "type":"activation",
+                        "function":"tf.nn.relu"
+                    },                    
+                    {
+                        "type":"max_pool",
+                        "pool_size":[2,2],
+                        "strides":[2,2]
+                    },
+                    {
+                        "type":"resnet_v2_block",
+                        "stride":1,
+                        "base_depth":16,
+                        "num_units": 2
+                    },
+                    {
+                        "type":"batch_norm",
+                        "axis": [1,2,3]
+                    },
+                    {
+                        "type":"activation",
+                        "function":"tf.nn.relu"
+                    },                   
+                    {
+                        "type":"max_pool",
+                        "pool_size":[2,2],
+                        "strides":[2,2]
+                    },
+                    {
+                        "type":"resnet_v2_block",
+                        "stride":1,
+                        "base_depth":16,
+                        "num_units": 2
+                    },
+                    {
+                        "type":"batch_norm",
+                        "axis": [1,2,3]
+                    },
+                    {
+                        "type":"activation",
+                        "function":"tf.nn.relu"
+                    },
+                    {
+                        "type":"max_pool",
+                        "pool_size":[2,2],
+                        "strides":[2,2]
+                    },
+                    {
+                        "type":"resnet_v2_block",
+                        "stride":1,
+                        "base_depth":16,
+                        "num_units": 2
+                    },
+                    {
+                        "type":"batch_norm",
+                        "axis": [1,2,3]
+                    },
+                    {
+                        "type":"activation",
+                        "function":"tf.nn.relu"
+                    },
+                    {
+                        "type":"max_pool",
+                        "pool_size":[2,2],
+                        "strides":[2,2]
+                    },
+                    {
+                        "type":"resnet_v2_block",
+                        "stride":1,
+                        "base_depth":16,
+                        "num_units": 2
+                    },
+                    {
+                        "type":"batch_norm",
+                        "axis": [1,2,3]
+                    },
+                    {
+                        "type":"activation",
+                        "function":"tf.nn.relu"
+                    },
+                    {
+                        "type":"max_pool",
+                        "pool_size":[2,2],
+                        "strides":[2,2]
+                    },
+                    {
+                        "type":"flatten"
+                    }
+                ],
+                "output":"encoded_patch"
+            },
+            {
+                "name":"decoder_texture",
+                "input":"encoded_patch",
+                "layers":[
+                    {
+                        "type":"slice",
+                        "begin":[0],
+                        "size":[16]
+                    },
+                    {
+                        "type":"reshape",
+                        "shape":[1,1,16]
+                    },
+                    {
+                        "type":"conv",
+                        "filters": 32,
+                        "padding": "valid",
+                        "kernel_size": [2,2],
+                        "strides":[1,1],
+                        "transpose": true
+                    },
+                    {
+                        "type":"batch_norm",
+                        "axis": [1,2,3]
+                    },
+                    {
+                        "type":"activation",
+                        "function":"tf.nn.relu"
+                    },
+                    {
+                        "type":"conv",
+                        "filters": 32,
+                        "padding": "valid",
+                        "kernel_size": [3,3],
+                        "strides":[1,1],
+                        "transpose": true
+                    },
+                    {
+                        "type":"batch_norm",
+                        "axis": [1,2,3]
+                    },
+                    {
+                        "type":"activation",
+                        "function":"tf.nn.relu"
+                    },
+                    {
+                        "type":"conv",
+                        "filters": 32,
+                        "kernel_size": [3,3],
+                        "strides":[1,1],
+                        "transpose": true
+                    },
+                    {
+                        "type":"batch_norm",
+                        "axis": [1,2,3]
+                    },
+                    {
+                        "type":"activation",
+                        "function":"tf.nn.relu"
+                    },
+                    {
+                        "type": "avg_unpool",
+                        "factor":2
+                    },
+                    {
+                        "type":"conv",
+                        "filters": 32,
+                        "kernel_size": [3,3],
+                        "strides":[1,1],
+                        "transpose": true
+                    },
+                    {
+                        "type":"batch_norm",
+                        "axis": [1,2,3]
+                    },
+                    {
+                        "type":"activation",
+                        "function":"tf.nn.relu"
+                    },
+                    {
+                        "type": "avg_unpool",
+                        "factor":2
+                    },                    
+                    {
+                        "type":"conv",
+                        "filters": 32,
+                        "kernel_size": [3,3],
+                        "strides":[1,1],
+                        "transpose": true
+                    },
+                    {
+                        "type":"batch_norm",
+                        "axis": [1,2,3]
+                    },
+                    {
+                        "type":"activation",
+                        "function":"tf.nn.relu"
+                    },
+                    {
+                        "type": "avg_unpool",
+                        "factor":2
+                    },
+                    {
+                        "type":"conv",
+                        "filters": 32,
+                        "kernel_size": [3,3],
+                        "strides":[1,1],
+                        "transpose": true
+                    },
+                    {
+                        "type":"batch_norm",
+                        "axis": [1,2,3]
+                    },
+                    {
+                        "type":"activation",
+                        "function":"tf.nn.relu"
+                    },
+                    {
+                        "type":"conv",
+                        "filters": 3,
+                        "kernel_size": [1,1],
+                        "strides":[1,1],
+                        "transpose": true
+                    }
+                ],
+                "output":"texture"
+            },
+            {
+                "name":"decoder_affine",
+                "input":"encoded_patch",
+                "layers":[
+                    {
+                        "type":"slice",
+                        "begin":[16],
+                        "size":[16]
+                    },
+                    {
+                        "type":"dense",
+                        "units":20,
+                        "activation":"tf.nn.relu"
+                    },
+                    {
+                        "type":"dense",
+                        "units":20,
+                        "activation":"tf.nn.relu"
+                    },
+                    {
+                        "type":"dense",
+                        "units":20,
+                        "activation":"tf.nn.relu"
+                    }
+                ],
+                "output":"affine_code"
+            },
+            {
+                "name":"decoder_translation",
+                "input":"affine_code",
+                "layers":[
+                    {
+                        "type":"dense",
+                        "units":2
+                    }
+                ],
+                "output":"offsets"
+            },
+            {
+                "name":"decoder_rotation",
+                "input":"affine_code",
+                "layers":[
+                    {
+                        "type":"dense",
+                        "units":1
+                    }
+                ],
+                "output":"angle"
+            },
+            {
+                "name":"rotor",
+                "input":"angle",
+                "layers":[
+                    {
+                        "type":"rotation",
+                        "image":"texture",
+                        "interpolation":"BILINEAR",
+                        "name":"rotation_op"
+                    }
+                ],
+                "output":"rotated_texture"
+            },
+            {
+                "name":"translator",
+                "input":"offsets",
+                "layers":[
+                    {
+                        "type":"translation",
+                        "image":"rotated_texture",
+                        "interpolation":"BILINEAR",
+                        "name":"translation_op"
+                    }
+                ],
+                "output":"texture_affine"
+            },
+            {
+                "name":"decoder_warping",
+                "input":"encoded_patch",
+                "layers":[
+                    {
+                        "type":"slice",
+                        "begin":[32],
+                        "size":[32]
+                    },
+                    {
+                        "type":"reshape",
+                        "shape":[1,1,32]
+                    },                    
+                    {
+                        "type":"conv",
+                        "filters": 32,
+                        "padding": "valid",
+                        "kernel_size": [2,2],
+                        "strides":[1,1],
+                        "transpose": true
+                    },
+                    {
+                        "type":"batch_norm",
+                        "axis": [1,2,3]
+                    },
+                    {
+                        "type":"activation",
+                        "function":"tf.nn.relu"
+                    },
+                    {
+                        "type":"conv",
+                        "filters": 32,
+                        "padding": "valid",
+                        "kernel_size": [3,3],
+                        "strides":[1,1],
+                        "transpose": true
+                    },
+                    {
+                        "type":"batch_norm",
+                        "axis": [1,2,3]
+                    },
+                    {
+                        "type":"activation",
+                        "function":"tf.nn.relu"
+                    },
+                    {
+                        "type":"conv",
+                        "filters": 32,
+                        "kernel_size": [3,3],
+                        "strides":[1,1],
+                        "transpose": true
+                    },
+                    {
+                        "type":"batch_norm",
+                        "axis": [1,2,3]
+                    },
+                    {
+                        "type":"activation",
+                        "function":"tf.nn.relu"
+                    },
+                    {
+                        "type": "avg_unpool",
+                        "factor":2
+                    },
+                    {
+                        "type":"conv",
+                        "filters": 32,
+                        "kernel_size": [3,3],
+                        "strides":[1,1],
+                        "transpose": true
+                    },
+                    {
+                        "type":"batch_norm",
+                        "axis": [1,2,3]
+                    },
+                    {
+                        "type":"activation",
+                        "function":"tf.nn.relu"
+                    },
+                    {
+                        "type": "avg_unpool",
+                        "factor":2
+                    },                    
+                    {
+                        "type":"conv",
+                        "filters": 32,
+                        "kernel_size": [3,3],
+                        "strides":[1,1],
+                        "transpose": true
+                    },
+                    {
+                        "type":"batch_norm",
+                        "axis": [1,2,3]
+                    },
+                    {
+                        "type":"activation",
+                        "function":"tf.nn.relu"
+                    },
+                    {
+                        "type": "avg_unpool",
+                        "factor":2
+                    },
+                    {
+                        "type":"conv",
+                        "filters": 32,
+                        "kernel_size": [3,3],
+                        "strides":[1,1],
+                        "transpose": true
+                    },
+                    {
+                        "type":"batch_norm",
+                        "axis": [1,2,3]
+                    },
+                    {
+                        "type":"activation",
+                        "function":"tf.nn.relu"
+                    },
+                    {
+                        "type":"conv",
+                        "filters": 2,
+                        "kernel_size": [1,1],
+                        "strides":[1,1],
+                        "transpose": true
+                    }
+                ],
+                "output":"deformation_gradient"
+            },
+            {
+                "name":"integrator",
+                "input":"deformation_gradient",
+                "layers":[
+                    {
+                        "type":"spatial_integration"
+                    }
+                ],
+                "output":"deformation"
+            },
+            {
+                "name":"warper",
+                "input":"texture_affine",
+                "layers":[
+                    {
+                        "type":"warping",
+                        "flow":"deformation",
+                        "batch":256,
+                        "name":"dense_image_warp"
+                    }
+                ],
+                "output":"logits"
+            }
+        ]
+    }
+}
