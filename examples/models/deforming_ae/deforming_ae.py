@@ -52,17 +52,21 @@ def my_model(features, labels, mode, params, config):
     # --------------------------------------------------------
     # Summaries
     # --------------------------------------------------------
-       
+    def denormalize(image):
+        channels = [tf.expand_dims(image[:,:,:,channel] * params['stddev'][channel] + params['mean'][channel],-1) for channel in range(3)]
+        return tf.concat(channels, 3)
 
     # Image summaries of patch and reconstruction
     tf.summary.image('images', tensors['patch'], 3)
+    tf.summary.image('images_denormalized',  denormalize(tensors['patch']), 3)
     tf.summary.image('reconstructions', tensors['logits'], 3)
+    tf.summary.image('reconstructions_denormalized', denormalize(tensors['logits']), 3)
     deformations_x, deformations_y = tf.split(tensors['deformation'],2,3)
     tf.summary.image('deformations_x', deformations_x, 3)
     tf.summary.image('deformations_y', deformations_y, 3)
-    tf.summary.image('texture', tensors['texture'], 3)
-    tf.summary.image('rotated_texture', tensors['rotated_texture'], 3)
-    tf.summary.image('texture_affine', tensors['texture_affine'], 3)
+    tf.summary.image('texture', denormalize(tensors['texture']), 3)
+    tf.summary.image('rotated_texture', denormalize(tensors['rotated_texture']), 3)
+    tf.summary.image('texture_affine', denormalize(tensors['texture_affine']), 3)
 
 
     if mode == tf.estimator.ModeKeys.EVAL:
@@ -105,7 +109,9 @@ def main(argv):
 
     params_dict = {
         'config': config_model,
-        'model_dir': args.model_dir
+        'model_dir': args.model_dir,
+        'mean':mean,
+        'stddev':stddev
     }
 
     classifier = tf.estimator.Estimator(
