@@ -55,14 +55,14 @@ def my_model(features, labels, mode, params, config):
        
 
     # Image summaries of patch and reconstruction
-    tf.summary.image('images', tensors['patch'], 1)
-    tf.summary.image('reconstructions', tensors['logits'], 1)
+    tf.summary.image('images', tensors['patch'], 3)
+    tf.summary.image('reconstructions', tensors['logits'], 3)
     deformations_x, deformations_y = tf.split(tensors['deformation'],2,3)
-    tf.summary.image('deformations_x', deformations_x, 1)
-    tf.summary.image('deformations_y', deformations_y, 1)
-    tf.summary.image('texture', tensors['texture'], 1)
-    tf.summary.image('rotated_texture', tensors['rotated_texture'], 1)
-    tf.summary.image('texture_affine', tensors['texture_affine'], 1)
+    tf.summary.image('deformations_x', deformations_x, 3)
+    tf.summary.image('deformations_y', deformations_y, 3)
+    tf.summary.image('texture', tensors['texture'], 3)
+    tf.summary.image('rotated_texture', tensors['rotated_texture'], 3)
+    tf.summary.image('texture_affine', tensors['texture_affine'], 3)
 
 
     if mode == tf.estimator.ModeKeys.EVAL:

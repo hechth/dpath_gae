@@ -328,7 +328,7 @@
                     {
                         "type":"rotation",
                         "image":"texture",
-                        "interpolation":"BILINEAR",
+                        "interpolation":"NEAREST",
                         "name":"rotation_op"
                     }
                 ],
@@ -341,7 +341,7 @@
                     {
                         "type":"translation",
                         "image":"rotated_texture",
-                        "interpolation":"BILINEAR",
+                        "interpolation":"NEAREST",
                         "name":"translation_op"
                     }
                 ],
@@ -467,19 +467,9 @@
                     {
                         "type":"conv",
                         "filters": 2,
-                        "kernel_size": [1,1],
+                        "kernel_size": [3,3],
                         "strides":[1,1],
                         "transpose": true
-                    }
-                ],
-                "output":"deformation_gradient"
-            },
-            {
-                "name":"integrator",
-                "input":"deformation_gradient",
-                "layers":[
-                    {
-                        "type":"spatial_integration"
                     }
                 ],
                 "output":"deformation"
