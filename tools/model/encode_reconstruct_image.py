@@ -15,13 +15,15 @@ import packages.Utility as cutil
 
 
 def main(argv):
-    parser = argparse.ArgumentParser(description='Plot latent space traversals for model.')
+    parser = argparse.ArgumentParser(description='Compute codes and reconstructions for image.')
     parser.add_argument('export_dir',type=str,help='Path to saved model.')
-    parser.add_argument('filename', type=str,help='Image file or numpy array to run inference on.')
     parser.add_argument('mean', type=str, help='Path to npy file holding mean for normalization.')
     parser.add_argument('variance', type=str, help='Path to npy file holding variance for normalization.')
+    parser.add_argument('filename', type=str,help='Image file or numpy array to run inference on.')
     parser.add_argument('patch_size', type=int, help='Size of image patches.')
     parser.add_argument('stride', type=int, help='Size of stride.')
+    parser.add_argument('codes_out', type=str,help='Where to store the numpy array of codes.')
+    parser.add_argument('reconstructions_out', type=str,help='Where to store the numpy array of reconstructions.')
     args = parser.parse_args()
 
     mean = np.load(args.mean)
@@ -50,7 +52,10 @@ def main(argv):
         saver.restore(sess, latest_checkpoint)
 
         codes_npy = sess.run(codes)
-        reconstructions_npy = np.vectorize(denormalize)(sess.run(reconstructions))
+        reconstructions_npy = np.array(list(map(denormalize,sess.run(reconstructions))))
+        
+        np.save(args.codes_out,codes_npy)
+        np.save(args.reconstructions_out, reconstructions_npy)
         print("Done!")
                 
 
