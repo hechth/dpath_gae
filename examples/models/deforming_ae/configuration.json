@@ -303,6 +303,7 @@
                 "layers":[
                     {
                         "type":"dense",
+                        "bias_initializer":"tf.initializers.zeros",
                         "units":2
                     }
                 ],
@@ -314,6 +315,7 @@
                 "layers":[
                     {
                         "type":"dense",
+                        "bias_initializer":"tf.initializers.zeros",
                         "units":1
                     }
                 ],

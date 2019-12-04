@@ -39,7 +39,7 @@ def my_model(features, labels, mode, params, config):
     # --------------------------------------------------------
     # Losses
     # --------------------------------------------------------   
-    reconstr_loss = tf.reduce_mean(tf.reduce_sum(tf.math.squared_difference(tensors['patch'], tensors['logits']),axis=[1,2,3]))
+    reconstr_loss =  tf.reduce_mean(tf.reduce_sum(tf.losses.absolute_difference(tensors['patch'], tensors['logits'], reduction=tf.losses.Reduction.NONE),axis=[1,2,3]))
     loss = reconstr_loss
 
 
@@ -61,6 +61,8 @@ def my_model(features, labels, mode, params, config):
     tf.summary.image('deformations_x', deformations_x, 1)
     tf.summary.image('deformations_y', deformations_y, 1)
     tf.summary.image('texture', tensors['texture'], 1)
+    tf.summary.image('rotated_texture', tensors['rotated_texture'], 1)
+    tf.summary.image('texture_affine', tensors['texture_affine'], 1)
 
 
     if mode == tf.estimator.ModeKeys.EVAL:
