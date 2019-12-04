@@ -371,15 +371,20 @@ def _parse_warping(input_shape, config):
     graph = tf.get_default_graph()
 
     name = config.get('name')
-    image = graph.get_tensor_by_name(config.get('image') + ':0')
-    flow = graph.get_tensor_by_name(config.get('flow') + ':0')
 
-    warp_image_op = tf.contrib.image.dense_image_warp(image, flow, name=name)
+    flow = graph.get_tensor_by_name(config.get('flow') + ':0')
+    batch, height, width, channels = input_shape.as_list()
+    shape = (config.get('batch'), height, width, 2)
+    flow.set_shape(shape)
 
     layer = None
     variables = None
-    function = lambda x: warp_image_op
-    output_shape = warp_image_op.get_shape()
+    def _warp_op(x):
+        x.set_shape((config.get('batch'), height, width, channels))
+        return tf.contrib.image.dense_image_warp(x, flow, name=name)
+
+    function = _warp_op
+    output_shape = input_shape
 
     return layer, variables, function, output_shape
 
@@ -392,8 +397,8 @@ def _parse_rotation(input_shape, config):
 
     layer = None
     variables = None
-    function = lambda x: tf.contrib.image.rotate(image, tf.squeeze(x), interpolation=interpolation, name=name)
-    output_shape = input_shape
+    function = lambda x: tf.reshape(tf.contrib.image.rotate(image, tf.squeeze(x,axis=-1), interpolation=interpolation), shape=tf.shape(image), name=name)
+    output_shape = image.get_shape()
     return layer, variables, function, output_shape
 
 def _parse_translation(input_shape, config):
@@ -405,8 +410,8 @@ def _parse_translation(input_shape, config):
 
     layer = None
     variables = None
-    function = lambda x: tf.contrib.image.translate(image, x, interpolation=interpolation, name=name)
-    output_shape = input_shape
+    function = lambda x: tf.reshape(tf.contrib.image.translate(image, x, interpolation=interpolation), shape=tf.shape(image), name=name)
+    output_shape = image.get_shape()
     return layer, variables, function, output_shape
 
 def _parse_reshape(input_shape, config):
@@ -498,6 +503,33 @@ def _parse_resnet_v2_block(shape:list, config:dict):
 
     return layers, variables, function, output_shape
 
+def _parse_spatial_integration(input_shape, config):
+    """
+    Spatial integration layer as implemented in the deforming autoencoder in  https://github.com/zhixinshu/DeformingAutoencoders-pytorch/blob/master/DAENet.py.
+    """
+    batch, height, width, channels = input_shape.as_list()
+
+    strides = [1,1,1,1]
+    padding = "SAME"
+
+    kernel_x = tf.Variable(tf.ones([1,width,1,1], dtype=tf.float32), name='kernel_x', trainable=False)
+    kernel_y = tf.Variable(tf.ones([height,1,1,1], dtype=tf.float32), name='kernel_y', trainable=False)
+
+    def _func(x):
+        output_kernel_size = [tf.shape(x)[0],height,width,1]
+
+        data_x, data_y = tf.split(x,2,3)
+
+        conv_x = tf.nn.conv2d_transpose(data_x, kernel_x, output_kernel_size, strides, padding, name='integrate_x')
+        conv_y = tf.nn.conv2d_transpose(data_y, kernel_y, output_kernel_size, strides, padding, name='integrate_y')
+        return tf.concat([conv_x, conv_y], 3)
+
+    layer = None
+    variables = None
+    function = _func
+    output_shape = input_shape
+    return layer, variables, function, output_shape
+
 def parse_layer(input_shape:list, config:dict):
     """
     Function which parses a layer or activation or avg_unpool operation specified in a layer config.
@@ -548,6 +580,8 @@ def parse_layer(input_shape:list, config:dict):
         return _parse_rotation(input_shape, config)
     elif config['type'] == 'translation':
         return _parse_translation(input_shape, config)
+    elif config['type'] == 'spatial_integration':
+        return _parse_spatial_integration(input_shape, config)
     else:
         layer = _layer_map[config['type']](config)
         layer.build(input_shape)
