@@ -128,7 +128,6 @@ def main(argv):
         ax[0].imshow(denormalized_patch)
         ax[1].imshow(sess.run(image))
         ax[2].imshow(sim_vals_normalized, cmap='plasma')
-        ax[2].colorbar()
         
         plt.show()
         sess.close()
