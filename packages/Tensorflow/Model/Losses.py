@@ -47,5 +47,5 @@ def deformation_smoothness_loss(flow):
     dyx, dy2 = tf.image.image_gradients(dy)
 
     integral = tf.square(dx2) + tf.square(dy2) + tf.square(dxy) + tf.square(dyx)
-    loss = tf.reduce_sum(integral)
+    loss = tf.reduce_sum(integral, axis=[1,2,3])
     return loss
