@@ -40,7 +40,9 @@ def my_model(features, labels, mode, params, config):
     # Losses
     # --------------------------------------------------------   
     reconstr_loss =  tf.reduce_mean(tf.reduce_sum(tf.losses.absolute_difference(tensors['patch'], tensors['logits'], reduction=tf.losses.Reduction.NONE),axis=[1,2,3]))
-    loss = reconstr_loss
+    smoothness_loss = tf.reduce_mean(ctfm.deformation_smoothness_loss(tensors['deformation']))
+
+    loss = reconstr_loss + 0.01 * smoothness_loss
 
 
     # --------------------------------------------------------
@@ -55,6 +57,9 @@ def my_model(features, labels, mode, params, config):
     def denormalize(image):
         channels = [tf.expand_dims(image[:,:,:,channel] * params['stddev'][channel] + params['mean'][channel],-1) for channel in range(3)]
         return tf.concat(channels, 3)
+
+    tf.summary.scalar('reconstr_loss',reconstr_loss)
+    tf.summary.scalar('smoothness_loss',smoothness_loss)
 
     # Image summaries of patch and reconstruction
     tf.summary.image('images', tensors['patch'], 3)
@@ -131,10 +136,6 @@ def main(argv):
     cutil.make_directory(export_dir)
     cutil.publish(export_dir)
 
-    # TODO: Write command to create serving input receiver fn from config.
-    serving_input_receiver_fn = ctfd.construct_serving_fn(config_model['inputs'])
-
-    classifier.export_saved_model(export_dir, serving_input_receiver_fn)
     cutil.publish(args.model_dir)
     cutil.publish(export_dir)
 
