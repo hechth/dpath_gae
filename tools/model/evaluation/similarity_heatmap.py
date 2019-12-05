@@ -37,7 +37,7 @@ def main(argv):
     parser.add_argument('image_size', type=int, nargs=2, help='Size of the input image, HW.')
     parser.add_argument('offsets', type=int, nargs=2, help='Position where to extract the patch.')
     parser.add_argument('patch_size', type=int, help='Size of image patch.')
-    #parser.add_argument('method', type=str, help='Method to use to measure similarity, one of KLD, SKLD, BD, HD, SQHD.')
+    parser.add_argument('method', type=str, help='Method to use to measure similarity, one of KLD, SKLD, BD, HD, SQHD.')
 
     args = parser.parse_args()
 
@@ -95,8 +95,16 @@ def main(argv):
         image_patches_cov, image_patches_mean = tf.contrib.graph_editor.graph_replace([sess.graph.get_tensor_by_name('imported/z_covariance_lower_tri/MatrixBandPart:0'),sess.graph.get_tensor_by_name('imported/z_mean/BiasAdd:0')] ,{ sess.graph.get_tensor_by_name('imported/patch:0'): chunk_tensor })
         image_patches_distributions = tf.contrib.distributions.MultivariateNormalTriL(loc=image_patches_mean, scale_tril=image_patches_cov)
         
-        similarities = patch_distribution.kl_divergence(image_patches_distributions)# + image_patches_distributions.kl_divergence(patch_distribution)
-        
+        if args.method == 'SKLD':
+            similarities = patch_distribution.kl_divergence(image_patches_distributions) + image_patches_distributions.kl_divergence(patch_distribution)
+        elif args.method == 'BD':
+            similarities = ctf.bhattacharyya_distance(patch_distribution, image_patches_distributions)
+        elif args.method == 'SQHD':
+            similarities = ctf.multivariate_squared_hellinger_distance(patch_distribution, image_patches_distributions)
+        elif args.method == 'HD':
+            similarities = tf.sqrt(ctf.multivariate_squared_hellinger_distance(patch_distribution, image_patches_distributions))
+        else:
+            similarities = patch_distribution.kl_divergence(image_patches_distributions)
         sim_vals = []
 
         sess.run(tf.global_variables_initializer())
@@ -120,6 +128,7 @@ def main(argv):
         ax[0].imshow(denormalized_patch)
         ax[1].imshow(sess.run(image))
         ax[2].imshow(sim_vals_normalized, cmap='plasma')
+        ax[2].colorbar()
         
         plt.show()
         sess.close()
