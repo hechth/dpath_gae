@@ -154,9 +154,11 @@ def main(argv):
 
         print(len(sim_vals))
         sim_heatmap = np.reshape(sim_vals, [heatmap_height, heatmap_width])
+        heatmap_tensor = tf.expand_dims(tf.expand_dims(tf.convert_to_tensor(sim_heatmap),-1),0)
+        dy, dx = tf.image.image_gradients(heatmap_tensor)
         sim_vals_normalized = 1.0 - ctfi.rescale(sim_heatmap,0.0, 1.0)
 
-        fig, ax = plt.subplots(2,2)
+        fig, ax = plt.subplots(2,3)
         cmap = 'plasma'
 
         denormalized_patch = denormalize(sess.run(patch)[0])
@@ -167,9 +169,14 @@ def main(argv):
         ax[1,0].imshow(sess.run(source_image))
         ax[1,1].imshow(sess.run(target_image))
         ax[0,0].imshow(denormalized_patch)
-        heatmap_image = ax[0,1].imshow(sim_vals_normalized, cmap=cmap)
+        heatmap_image = ax[0,1].imshow(sim_heatmap, cmap=cmap)
+
+        dx_image = ax[0,2].imshow(np.squeeze(sess.run(dx)), cmap='bwr')
+        dy_image = ax[1,2].imshow(np.squeeze(sess.run(dy)), cmap='bwr')        
 
         fig.colorbar(heatmap_image, ax=ax[0,1])
+        fig.colorbar(dx_image, ax=ax[0,2])
+        fig.colorbar(dy_image, ax=ax[1,2])
         
         plt.show()
         sess.close()
