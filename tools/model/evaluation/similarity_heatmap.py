@@ -28,7 +28,7 @@ def get_divisors(n):
             divisors.append(int(n / i))
     return divisors
 
-max_buffer_size_in_byte = 59105280
+max_buffer_size_in_byte = 88657920
 max_patch_buffer_size = 2477273088
 
 def main(argv):
@@ -61,7 +61,6 @@ def main(argv):
     max_chunk_size = int(max_buffer_size_in_byte / patch_size_in_byte)
 
 
-    chunk_size = heatmap_width
 
     def denormalize(image):
         channels = [np.expand_dims(image[:,:,channel] * stddev[channel] + mean[channel],-1) for channel in range(3)]
@@ -90,6 +89,13 @@ def main(argv):
 
         #Iteration over image regions that we can load
         num_iterations = int(args.target_image_size[0] / max_num_rows) + 1
+        
+        all_chunks = list()
+        all_similarities = list()
+        chunk_tensors = list()
+
+        chunk_sizes = np.zeros(num_iterations, dtype=np.int)
+        chunk_sizes.fill(heatmap_width)
         for i in range(num_iterations):
             processed_rows = i * max_num_rows
             rows_to_load = min(max_num_rows + (args.patch_size - 1), args.target_image_size[0] - processed_rows)
@@ -101,16 +107,26 @@ def main(argv):
             # image_width * image_height for 'SAME' padding
             all_image_patches = tf.unstack(normalize(ctfi.extract_patches(target_image_region, args.patch_size, strides=[1,1,1,1], padding='VALID')))
 
+            possible_chunk_sizes = get_divisors(len(all_image_patches))
+
+            for size in possible_chunk_sizes:
+                if size < max_chunk_size:
+                    chunk_sizes[i] = size
+                    break
+
             # Partition patches into chunks
-            chunked_patches = list(create_chunks(all_image_patches, chunk_size))
+            chunked_patches = list(create_chunks(all_image_patches, chunk_sizes[i]))
             chunked_patches = list(map(tf.stack, chunked_patches))
+            all_chunks.append(chunked_patches)
 
             #last_chunk = chunked_patches.pop()
             #last_chunk_size = last_chunk.get_shape().as_list()[0]
             #padding_size = chunk_size - last_chunk_size
             #last_chunk_padded = tf.concat([last_chunk, tf.ones([padding_size, args.patch_size, args.patch_size, 3],dtype=tf.float32)],0)
 
-            chunk_tensor = tf.placeholder(tf.float32,shape=[chunk_size, args.patch_size, args.patch_size, 3], name='chunk_tensor_placeholder')
+            chunk_tensor = tf.placeholder(tf.float32,shape=[chunk_sizes[i], args.patch_size, args.patch_size, 3], name='chunk_tensor_placeholder')
+            chunk_tensors.append(chunk_tensor)
+            
             image_patches_cov, image_patches_mean = tf.contrib.graph_editor.graph_replace([sess.graph.get_tensor_by_name('imported/z_covariance_lower_tri/MatrixBandPart:0'),sess.graph.get_tensor_by_name('imported/z_mean/BiasAdd:0')] ,{ sess.graph.get_tensor_by_name('imported/patch:0'): chunk_tensor })
             image_patches_distributions = tf.contrib.distributions.MultivariateNormalTriL(loc=image_patches_mean, scale_tril=image_patches_cov)
         
@@ -125,19 +141,16 @@ def main(argv):
             else:
                 similarities = patch_distribution.kl_divergence(image_patches_distributions)
 
-            sess.run(tf.global_variables_initializer())
-            sess.run(tf.local_variables_initializer())
-            saver.restore(sess, latest_checkpoint)
+            all_similarities.append(similarities)
 
-            for chunk in chunked_patches:
-                chunk_vals = sess.run(similarities, feed_dict={chunk_tensor: sess.run(chunk)})
-                sim_vals.extend(chunk_vals)
-                #sim_vals.extend(np.random.rand(chunk_size))
+        sess.run(tf.global_variables_initializer())
+        sess.run(tf.local_variables_initializer())
+        saver.restore(sess, latest_checkpoint)
 
-            #last_chunk_eval = sess.run(last_chunk)
-            #last_chunk_vals = sess.run(similarities, feed_dict={chunk_tensor: sess.run(last_chunk_padded)})
-            #sim_vals.extend(np.zeros(last_chunk_size))
-            #sim_vals.extend(last_chunk_vals[0:last_chunk_size])
+        for i in range(num_iterations):
+            for chunk in all_chunks[i]:
+                #chunk_vals = sess.run(all_similarities[i], feed_dict={chunk_tensors[i]: sess.run(chunk)})
+                sim_vals.extend(sess.run(all_similarities[i], feed_dict={chunk_tensors[i]: sess.run(chunk)}))
 
         print(len(sim_vals))
         sim_heatmap = np.reshape(sim_vals, [heatmap_height, heatmap_width])
