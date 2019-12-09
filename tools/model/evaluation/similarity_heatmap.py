@@ -28,7 +28,7 @@ def get_divisors(n):
             divisors.append(int(n / i))
     return divisors
 
-max_buffer_size_in_byte = 88657920
+max_buffer_size_in_byte = 32*32*4*3*10
 max_patch_buffer_size = 2477273088
 
 def main(argv):
@@ -158,25 +158,40 @@ def main(argv):
         dy, dx = tf.image.image_gradients(heatmap_tensor)
         sim_vals_normalized = 1.0 - ctfi.rescale(sim_heatmap,0.0, 1.0)
 
+        k_min = 20
+        min_indices = np.unravel_index(np.argsort(sim_vals)[:k_min],sim_heatmap.shape)
+        fig_min, ax_min = plt.subplots(4,5)
+
+        for i in range(k_min):
+            target_patch = tf.image.crop_to_bounding_box(target_image, min_indices[0][i], min_indices[1][i], args.patch_size, args.patch_size)
+            ax_min[int(i / 5), int(i % 5)].imshow(sess.run(target_patch))
+            ax_min[int(i / 5), int(i % 5)].set_title('y:' + str(min_indices[0][i]) + ', x:' + str(min_indices[1][i]))
+
         fig, ax = plt.subplots(2,3)
         cmap = 'plasma'
 
         denormalized_patch = denormalize(sess.run(patch)[0])
         max_sim_val = np.max(sim_vals)
-        max_idx = np.argmin(sim_heatmap)
-        max_idx = [int(max_idx / heatmap_width),int(max_idx % heatmap_width)]
+        max_idx = np.unravel_index(np.argmin(sim_heatmap),sim_heatmap.shape)
+
+        target_image_patch = tf.image.crop_to_bounding_box(target_image, max_idx[0], max_idx[1], args.patch_size, args.patch_size)
         print(max_idx)
+
+        
+        print(min_indices)
         ax[1,0].imshow(sess.run(source_image))
         ax[1,1].imshow(sess.run(target_image))
         ax[0,0].imshow(denormalized_patch)
-        heatmap_image = ax[0,1].imshow(sim_heatmap, cmap=cmap)
+        heatmap_image = ax[0,2].imshow(sim_heatmap, cmap=cmap)
+        ax[0,1].imshow(sess.run(target_image_patch))
+        #dx_image = ax[0,2].imshow(np.squeeze(sess.run(dx)), cmap='bwr')
+        #dy_image = ax[1,2].imshow(np.squeeze(sess.run(dy)), cmap='bwr')
+        gradient_image = ax[1,2].imshow(np.squeeze(sess.run(dx+dy)), cmap='bwr')
 
-        dx_image = ax[0,2].imshow(np.squeeze(sess.run(dx)), cmap='bwr')
-        dy_image = ax[1,2].imshow(np.squeeze(sess.run(dy)), cmap='bwr')        
-
-        fig.colorbar(heatmap_image, ax=ax[0,1])
-        fig.colorbar(dx_image, ax=ax[0,2])
-        fig.colorbar(dy_image, ax=ax[1,2])
+        fig.colorbar(heatmap_image, ax=ax[0,2])
+        #fig.colorbar(dx_image, ax=ax[0,2])
+        #fig.colorbar(dy_image, ax=ax[1,2])
+        fig.colorbar(gradient_image, ax=ax[1,2])
         
         plt.show()
         sess.close()
