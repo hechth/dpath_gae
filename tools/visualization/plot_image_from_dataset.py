@@ -25,7 +25,7 @@ def main(argv):
     dataset = tf.data.TFRecordDataset(args.dataset).map(decode_op, num_parallel_calls=8)
     image = tf.data.experimental.get_single_element(dataset.skip(args.position).take(1))[args.key]
 
-    plt.imshow(image.numpy())
+    plt.imshow(image.numpy()/255.0)
     plt.show()
 
 if __name__ == "__main__":
