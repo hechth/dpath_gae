@@ -3,7 +3,7 @@
         "training": {
             "filename": "/sdc1/datasets/level1/train_ds_20000000_64_0.tfrec",
             "size": 20000000,
-            "epochs": 5
+            "epochs": 30
         },
         "batch":256,
         "shuffle_size":250000,
@@ -41,7 +41,7 @@
             "alpha": 2,
             "delta": 4,
             "stain_code_size":8,
-            "latent_space_size":40
+            "latent_space_size":62
         },
         "components": [      
             {
@@ -51,7 +51,7 @@
                     {
                         "type":"resnet_v2_block",
                         "stride":1,
-                        "base_depth":16,
+                        "base_depth":32,
                         "num_units": 2
                     },
                     {
@@ -70,7 +70,7 @@
                     {
                         "type":"resnet_v2_block",
                         "stride":1,
-                        "base_depth":16,
+                        "base_depth":32,
                         "num_units": 2
                     },
                     {
@@ -89,7 +89,7 @@
                     {
                         "type":"resnet_v2_block",
                         "stride":1,
-                        "base_depth":16,
+                        "base_depth":32,
                         "num_units": 2
                     },
                     {
@@ -108,7 +108,7 @@
                     {
                         "type":"resnet_v2_block",
                         "stride":1,
-                        "base_depth":16,
+                        "base_depth":32,
                         "num_units": 2
                     },
                     {
@@ -127,7 +127,7 @@
                     {
                         "type":"resnet_v2_block",
                         "stride":1,
-                        "base_depth":16,
+                        "base_depth":32,
                         "num_units": 2
                     },
                     {
@@ -146,7 +146,7 @@
                     {
                         "type":"resnet_v2_block",
                         "stride":1,
-                        "base_depth":16,
+                        "base_depth":32,
                         "num_units": 2
                     },
                     {
@@ -174,7 +174,7 @@
                 "layers": [
                     {
                         "type":"sampler_v2",
-                        "dims":40,
+                        "dims":62,
                         "name":"z"
                     }
                 ],
@@ -212,7 +212,7 @@
                     {
                         "type":"slice",
                         "begin":[8],
-                        "size":[32],
+                        "size":[54],
                         "name:":"z_structure"
                     },
                     {
@@ -230,11 +230,11 @@
                 "layers": [
                     {
                         "type":"reshape",
-                        "shape":[1,1,40]
+                        "shape":[1,1,62]
                     },                    
                     {
                         "type":"conv",
-                        "filters": 32,
+                        "filters": 64,
                         "padding": "valid",
                         "kernel_size": [2,2],
                         "strides":[1,1],
@@ -251,7 +251,7 @@
                     },
                     {
                         "type":"conv",
-                        "filters": 32,
+                        "filters": 64,
                         "padding": "valid",
                         "kernel_size": [3,3],
                         "strides":[1,1],
@@ -268,7 +268,7 @@
                     },
                     {
                         "type":"conv",
-                        "filters": 32,
+                        "filters": 64,
                         "kernel_size": [3,3],
                         "strides":[1,1],
                         "transpose": true,
@@ -288,7 +288,7 @@
                     },
                     {
                         "type":"conv",
-                        "filters": 32,
+                        "filters": 64,
                         "kernel_size": [3,3],
                         "strides":[1,1],
                         "transpose": true,
@@ -308,7 +308,7 @@
                     },
                     {
                         "type":"conv",
-                        "filters": 32,
+                        "filters": 64,
                         "kernel_size": [3,3],
                         "strides":[1,1],
                         "transpose": true,
@@ -328,7 +328,7 @@
                     },                    
                     {
                         "type":"conv",
-                        "filters": 32,
+                        "filters": 64,
                         "kernel_size": [3,3],
                         "strides":[1,1],
                         "transpose": true,
@@ -348,7 +348,7 @@
                     },
                     {
                         "type":"conv",
-                        "filters": 32,
+                        "filters": 64,
                         "kernel_size": [3,3],
                         "strides":[1,1],
                         "transpose": true,
