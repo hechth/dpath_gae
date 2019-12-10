@@ -43,6 +43,8 @@ def main(argv):
     parser.add_argument('target_filename', type=str,help='Image file for which to create the heatmap.')
     parser.add_argument('target_image_size', type=int, nargs=2, help='Size of the input image for which to create heatmap, HW.')
     parser.add_argument('method', type=str, help='Method to use to measure similarity, one of KLD, SKLD, BD, HD, SQHD.')
+    parser.add_argument('--stain_code_size', type=int, dest='stain_code_size', default=0,
+        help='Optional: Size of the stain code to use, which is skipped for similarity estimation')
 
     args = parser.parse_args()
 
@@ -80,7 +82,7 @@ def main(argv):
         source_image = ctfi.load(args.source_filename,height=args.source_image_size[0], width=args.source_image_size[1])
         patch = normalize(tf.expand_dims(tf.image.crop_to_bounding_box(source_image,args.offsets[0], args.offsets[1], args.patch_size, args.patch_size),0))        
         patch_cov, patch_mean = tf.contrib.graph_editor.graph_replace([sess.graph.get_tensor_by_name('imported/z_covariance_lower_tri/MatrixBandPart:0'),sess.graph.get_tensor_by_name('imported/z_mean/BiasAdd:0')] ,{ sess.graph.get_tensor_by_name('imported/patch:0'): patch })
-        patch_distribution = tf.contrib.distributions.MultivariateNormalTriL(loc=patch_mean, scale_tril=patch_cov)
+        patch_distribution = tf.contrib.distributions.MultivariateNormalTriL(loc=patch_mean[:,args.stain_code_size:], scale_tril=patch_cov[:,args.stain_code_size:,args.stain_code_size:])
         
         sim_vals = []
 
@@ -128,7 +130,7 @@ def main(argv):
             chunk_tensors.append(chunk_tensor)
             
             image_patches_cov, image_patches_mean = tf.contrib.graph_editor.graph_replace([sess.graph.get_tensor_by_name('imported/z_covariance_lower_tri/MatrixBandPart:0'),sess.graph.get_tensor_by_name('imported/z_mean/BiasAdd:0')] ,{ sess.graph.get_tensor_by_name('imported/patch:0'): chunk_tensor })
-            image_patches_distributions = tf.contrib.distributions.MultivariateNormalTriL(loc=image_patches_mean, scale_tril=image_patches_cov)
+            image_patches_distributions = tf.contrib.distributions.MultivariateNormalTriL(loc=image_patches_mean[:,args.stain_code_size:], scale_tril=image_patches_cov[:,args.stain_code_size:,args.stain_code_size:])
         
             if args.method == 'SKLD':
                 similarities = patch_distribution.kl_divergence(image_patches_distributions) + image_patches_distributions.kl_divergence(patch_distribution)
