@@ -105,6 +105,26 @@ def extract_patches(
     )
 
     return patches
+
+def stitch_patches(patches, strides, image_size):
+    batch, height, width, channels = patches.get_shape().as_list()
+    
+    # Requires interpolating the patches which isn't implemented yet.
+    if strides[1] != height or strides[2] != width:
+        return None
+
+    block_shape = [int(image_size[0] / height), int(image_size[1] / width)]
+    crops = [[0, 0], [0, 0]]
+    
+    rows = [patches[outer * block_shape[0]: (outer + 1) * block_shape[0], inner, :, :] for outer in range(block_shape[0]) for inner in range(height)]
+    rows = list(map(tf.unstack, rows))
+    rows = list(map(lambda x: tf.concat(x,0), rows))
+    flattened_image = tf.concat(rows, 0)
+    image = tf.reshape(flattened_image, shape=[image_size[0], image_size[1], channels])
+
+    #image = tf.batch_to_space_nd(patches, block_shape, crops)
+    return image
+
     
 def subsample(image, factor, method=tf.image.ResizeMethod.BILINEAR):
     """
