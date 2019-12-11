@@ -111,7 +111,7 @@ def main(argv):
         matches = list(zip(range(1000), indices, distances))
         # Sort matches by score
         matches.sort(key=lambda x: x[2], reverse=False)
-        matches = matches[:50]
+        matches = matches[:10]
 
         def create_dmatch(trainIdx, queryIdx, distance):
             dmatch = cv2.DMatch(queryIdx, trainIdx, 0, distance)
@@ -122,7 +122,7 @@ def main(argv):
         # Draw top matches
         imMatches = cv2.drawMatches(im_source, source_keypoints, im_target, target_keypoints, cv_matches, None)
         
-        fix, ax = plt.subplots(2)
+        fix, ax = plt.subplots(1)
         ax[0].imshow(imMatches)
         plt.show()
 
