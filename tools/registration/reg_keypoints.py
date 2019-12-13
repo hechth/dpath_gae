@@ -25,7 +25,7 @@ def get_mean_and_cov(X, latent_code_size):
 def get_mean_and_cov_tf(X, latent_code_size):
     X_mean = X[:latent_code_size]
     X_cov = tf.reshape(X[latent_code_size:],(latent_code_size, latent_code_size))
-    X_cov = tf.matmul(X_cov, X_cov,transpose_b=True)
+    X_cov = tf.matmul(X_cov, X_cov, transpose_b=True)
     return X_mean, X_cov
 
 def multivariate_squared_hellinger_distance(X, Y, latent_code_size):
@@ -73,8 +73,14 @@ def main(argv):
     parser.add_argument('source_image_size', type=int, nargs=2, help='Size of the input image, HW.')
     parser.add_argument('target_filename', type=str,help='Image file for which to create the heatmap.')
     parser.add_argument('target_image_size', type=int, nargs=2, help='Size of the input image for which to create heatmap, HW.')
+    parser.add_argument('num_keypoints', type=int, help='Number of keypoints to detect.')
+    parser.add_argument('num_matches', type=int, help='Number of matches to keep.')    
     parser.add_argument('--stain_code_size', type=int, dest='stain_code_size', default=0,
         help='Optional: Size of the stain code to use, which is skipped for similarity estimation')
+    parser.add_argument('--leaf_size', type=int, dest='leaf_size', default=30,
+        help='Number of elements to keep in leaf nodes of search tree.')
+    parser.add_argument('--method', type=str, dest='method', default='SKLD', help='Method to use to measure similarity, one of KLD, SKLD, BD, HD, SQHD.')
+
 
     args = parser.parse_args()
 
@@ -102,12 +108,7 @@ def main(argv):
         target_image =  tf.expand_dims(ctfi.load(args.target_filename,height=args.target_image_size[0], width=args.target_image_size[1]),0)
         im_target = (sess.run(target_image[0]) * 255).astype(np.uint8)
 
-        orb = cv2.ORB_create(500)
-
-        #descriptor_extractor = ORB(n_keypoints=2000)
-        #source_keypoints_sk = descriptor_extractor.detect(im_source)
-        #target_keypoints_sk = descriptor_extractor.detect(im_target)       
-        
+        orb = cv2.ORB_create(args.num_keypoints)        
         source_keypoints = orb.detect(im_source, None)
         target_keypoints = orb.detect(im_target, None)
 
@@ -123,8 +124,8 @@ def main(argv):
         batch, latent_code_size = target_mean.get_shape().as_list()
         structure_code_size = latent_code_size - args.stain_code_size
 
-        source_descriptors = tf.unstack(tf.concat([source_mean[:,args.stain_code_size:], tf.layers.flatten(source_cov[:,args.stain_code_size:,args.stain_code_size:])], -1))
-        target_descriptors = tf.unstack(tf.concat([target_mean[:,args.stain_code_size:], tf.layers.flatten(target_cov[:,args.stain_code_size:,args.stain_code_size:])], -1))
+        source_descriptors = tf.concat([source_mean[:,args.stain_code_size:], tf.layers.flatten(source_cov[:,args.stain_code_size:,args.stain_code_size:])], -1)
+        target_descriptors = tf.concat([target_mean[:,args.stain_code_size:], tf.layers.flatten(target_cov[:,args.stain_code_size:,args.stain_code_size:])], -1)
 
 
         def multi_kl_div(X,Y):
@@ -168,8 +169,14 @@ def main(argv):
         target_descriptors_eval = sess.run(target_descriptors)
 
         #matches = match_descriptors(source_descriptors, target_descriptors, metric=lambda x,y: sym_kl_div(x,y), cross_check=True)
-        
-        knn_source = sklearn.neighbors.NearestNeighbors(n_neighbors=5, radius=1.0, algorithm='ball_tree', leaf_size=30, metric=sym_kl_div, p=2, metric_params=None, n_jobs=None)
+        if args.method == 'SKLD':
+            metric = sym_kl_div
+        elif args.method == 'SQHD':
+            metric = sqhd
+        else:
+            metric = sym_kl_div
+
+        knn_source = sklearn.neighbors.NearestNeighbors(n_neighbors=5, radius=1.0, algorithm='ball_tree', leaf_size=args.leaf_size, metric=metric)
         knn_source.fit(target_descriptors_eval)
 
         distances, indices = knn_source.kneighbors(source_descriptors_eval, n_neighbors=1)
@@ -177,7 +184,7 @@ def main(argv):
         # Sort matches by score
         
         matches.sort(key=lambda x: x[2], reverse=False)
-        matches = matches[:20]
+        matches = matches[:args.num_matches]
 
         def create_dmatch(queryIdx, trainIdx, distance):
             dmatch = cv2.DMatch(queryIdx, trainIdx, 0, distance)
