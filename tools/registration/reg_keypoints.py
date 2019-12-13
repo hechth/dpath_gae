@@ -63,6 +63,41 @@ def multivariate_squared_hellinger_distance(X, Y, latent_code_size):
     h_squared = 1.0 - A * np.math.exp(B)
     return h_squared
 
+def bhattacharyya_distance(X_mean, X_cov, Y_mean, Y_cov):
+    """
+    See https://en.wikipedia.org/wiki/Bhattacharyya_distance
+
+    Simplified formulas:        \n
+    (1):    D = B + 1/2 ln (A)
+    (2):    B = (1/8) * B1^T * B2 * B1 \n
+    (2.1):  B1 = (mean_x - mean_y) \n
+    (2.2):  B2 = ((sigma_x + sigma_y) / 2) ^ (-1) \n
+    (3):    A = A1 / A2 \n
+    (3.1):  A1 = det((sigma_x + sigma_y) / 2) \n
+    (3.2):  A2 = (det(sigma_x) + det(sigma_y))^(1/2)
+
+    Parameters
+    ----------
+    X: tf.contrib.distributions.MultiVariateNormal* distribution. \n
+    Y: tf.contrib.distributions.MultiVariateNormal* distribution.
+
+    Returns
+    -------
+    b_dist: [batch_size,] vector filled with float
+
+    """
+    B0 = (X_cov + Y_cov) * 0.5
+    B1 = np.expand_dims(X_mean - Y_mean,axis=-1)
+    B2 = np.linalg.inv(B0)
+    B = 0.125 * np.squeeze(np.matmul(np.transpose(B1), np.matmul(B2,B1)))
+    
+    A2 = np.math.sqrt(np.linalg.det(X_cov) + np.linalg.det(Y_cov))
+    A1 = np.linalg.det((X_cov + Y_cov) * 0.5)
+    A = A1 / A2
+
+    b_dist = B + 0.5 * np.math.log(A)
+    return np.squeeze(b_dist)
+
 def main(argv):
     parser = argparse.ArgumentParser(description='Register images using keypoints.')
     parser.add_argument('export_dir',type=str,help='Path to saved model.')
@@ -109,8 +144,25 @@ def main(argv):
         im_target = (sess.run(target_image[0]) * 255).astype(np.uint8)
 
         orb = cv2.ORB_create(args.num_keypoints)        
-        source_keypoints = orb.detect(im_source, None)
-        target_keypoints = orb.detect(im_target, None)
+        source_keypoints, source_descriptors_cv = orb.detectAndCompute(im_source, None)
+        target_keypoints, target_descriptors_cv = orb.detectAndCompute(im_target, None)
+
+        source_keypoints.sort(key = lambda x: x.response, reverse=True)
+        target_keypoints.sort(key = lambda x: x.response, reverse=True)
+
+        
+        def remove_overlapping(x, keypoints):
+            for p in keypoints:
+                if p != x and x.overlap(x,p) > 0.5:
+                    keypoints.remove(p)
+            return keypoints
+        
+        for p in source_keypoints:
+            source_keypoints = remove_overlapping(p, source_keypoints)
+        #for p in target_keypoints:
+        #    target_keypoints = remove_overlapping(p, target_keypoints)
+
+
 
         def get_patch_at(keypoint, image):
             return tf.image.extract_glimpse(image,[args.patch_size, args.patch_size], [keypoint.pt], normalized=False, centered=False)
@@ -163,6 +215,13 @@ def main(argv):
         def sqhd(X,Y):
             return multivariate_squared_hellinger_distance(X,Y,structure_code_size)
 
+        def bd(X,Y):
+            X_mean, X_cov = get_mean_and_cov(X, structure_code_size)
+            Y_mean, Y_cov = get_mean_and_cov(Y, structure_code_size)
+            return bhattacharyya_distance(X_mean, X_cov, Y_mean, Y_cov)
+
+        
+
         saver.restore(sess,latest_checkpoint)
 
         source_descriptors_eval = sess.run(source_descriptors)
@@ -173,26 +232,34 @@ def main(argv):
             metric = sym_kl_div
         elif args.method == 'SQHD':
             metric = sqhd
+        elif args.method == 'BD':
+            metric = bd
         else:
             metric = sym_kl_div
 
         knn_source = sklearn.neighbors.NearestNeighbors(n_neighbors=5, radius=1.0, algorithm='ball_tree', leaf_size=args.leaf_size, metric=metric)
         knn_source.fit(target_descriptors_eval)
 
-        distances, indices = knn_source.kneighbors(source_descriptors_eval, n_neighbors=1)
+        distances, indices = knn_source.kneighbors(source_descriptors_eval, n_neighbors=3)
         matches = list(zip(range(len(indices)), np.squeeze(indices), np.squeeze(distances)))
         # Sort matches by score
         
-        matches.sort(key=lambda x: x[2], reverse=False)
+        matches.sort(key=lambda x: np.min(x[2]), reverse=False)
         matches = matches[:args.num_matches]
 
         def create_dmatch(queryIdx, trainIdx, distance):
             dmatch = cv2.DMatch(queryIdx, trainIdx, 0, distance)
             return dmatch
 
-        cv_matches = list(map(lambda x: create_dmatch(x[0], x[1], x[2]),matches))  
+        def create_cv_matches(match):            
+            return [cv2.DMatch(match[0], idx, 0, dist) for idx, dist in (match[1], match[2])]
+        all_cv_matches = []
+
+        [all_cv_matches.extend(create_cv_matches(match) for match in matches)]
+
+        #cv_matches = list(map(lambda x: create_dmatch(x[0], x[1], x[2]),matches))  
         # Draw top matches
-        imMatches = cv2.drawMatches(im_source, source_keypoints, im_target, target_keypoints, cv_matches, None)
+        imMatches = cv2.drawMatches(im_source, source_keypoints, im_target, target_keypoints, all_cv_matches, None)
 
         fix, ax = plt.subplots(1)
         ax.imshow(imMatches)
