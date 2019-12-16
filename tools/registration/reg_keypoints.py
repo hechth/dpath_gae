@@ -115,6 +115,7 @@ def main(argv):
     parser.add_argument('--leaf_size', type=int, dest='leaf_size', default=30,
         help='Number of elements to keep in leaf nodes of search tree.')
     parser.add_argument('--method', type=str, dest='method', default='SKLD', help='Method to use to measure similarity, one of KLD, SKLD, BD, HD, SQHD.')
+    parser.add_argument('--num_neighbours', type=int, dest='num_neighbours', default=1, help='k for kNN')
 
 
     args = parser.parse_args()
@@ -143,26 +144,37 @@ def main(argv):
         target_image =  tf.expand_dims(ctfi.load(args.target_filename,height=args.target_image_size[0], width=args.target_image_size[1]),0)
         im_target = (sess.run(target_image[0]) * 255).astype(np.uint8)
 
-        orb = cv2.ORB_create(args.num_keypoints)        
+        orb = cv2.ORB_create(100000)        
         source_keypoints, source_descriptors_cv = orb.detectAndCompute(im_source, None)
         target_keypoints, target_descriptors_cv = orb.detectAndCompute(im_target, None)
 
-        source_keypoints.sort(key = lambda x: x.response, reverse=True)
-        target_keypoints.sort(key = lambda x: x.response, reverse=True)
+        source_keypoints.sort(key = lambda x: x.response, reverse=False)
+        target_keypoints.sort(key = lambda x: x.response, reverse=False)
 
         
-        def remove_overlapping(x, keypoints):
+        def remove_overlapping(x, keypoints):            
             for p in keypoints:
                 if p != x and x.overlap(x,p) > 0.5:
                     keypoints.remove(p)
             return keypoints
         
-        for p in source_keypoints:
-            source_keypoints = remove_overlapping(p, source_keypoints)
-        #for p in target_keypoints:
-        #    target_keypoints = remove_overlapping(p, target_keypoints)
+        def filter_keypoints(keypoints):
+            i = 0
+            while i < len(keypoints):
+                end_idx = len(keypoints) - 1 - i
+                p = keypoints[end_idx]
+                keypoints = remove_overlapping(p, keypoints)
+                i += 1
+            return keypoints
+        
+        source_keypoints = filter_keypoints(source_keypoints)
+        target_keypoints = filter_keypoints(target_keypoints)
 
+        source_keypoints.sort(key = lambda x: x.response, reverse=True)
+        target_keypoints.sort(key = lambda x: x.response, reverse=True)
 
+        source_keypoints = source_keypoints[:args.num_keypoints]
+        target_keypoints = target_keypoints[:args.num_keypoints]
 
         def get_patch_at(keypoint, image):
             return tf.image.extract_glimpse(image,[args.patch_size, args.patch_size], [keypoint.pt], normalized=False, centered=False)
@@ -220,8 +232,6 @@ def main(argv):
             Y_mean, Y_cov = get_mean_and_cov(Y, structure_code_size)
             return bhattacharyya_distance(X_mean, X_cov, Y_mean, Y_cov)
 
-        
-
         saver.restore(sess,latest_checkpoint)
 
         source_descriptors_eval = sess.run(source_descriptors)
@@ -240,8 +250,8 @@ def main(argv):
         knn_source = sklearn.neighbors.NearestNeighbors(n_neighbors=5, radius=1.0, algorithm='ball_tree', leaf_size=args.leaf_size, metric=metric)
         knn_source.fit(target_descriptors_eval)
 
-        distances, indices = knn_source.kneighbors(source_descriptors_eval, n_neighbors=3)
-        matches = list(zip(range(len(indices)), np.squeeze(indices), np.squeeze(distances)))
+        distances, indices = knn_source.kneighbors(source_descriptors_eval, n_neighbors=args.num_neighbours)
+        matches = list(zip(range(len(indices)), indices, distances))
         # Sort matches by score
         
         matches.sort(key=lambda x: np.min(x[2]), reverse=False)
@@ -251,11 +261,15 @@ def main(argv):
             dmatch = cv2.DMatch(queryIdx, trainIdx, 0, distance)
             return dmatch
 
-        def create_cv_matches(match):            
-            return [cv2.DMatch(match[0], idx, 0, dist) for idx, dist in (match[1], match[2])]
-        all_cv_matches = []
+        def create_cv_matches(match):
+            items = []
+            for i in range(len(match[1])):
+                items.append(cv2.DMatch(match[0], match[1][i], 0, match[2][i]))
+            return items
 
-        [all_cv_matches.extend(create_cv_matches(match) for match in matches)]
+        all_cv_matches = []
+        for match in matches:
+            all_cv_matches.extend(create_cv_matches(match))
 
         #cv_matches = list(map(lambda x: create_dmatch(x[0], x[1], x[2]),matches))  
         # Draw top matches
