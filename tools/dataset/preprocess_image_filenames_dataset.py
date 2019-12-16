@@ -89,6 +89,7 @@ def main(argv):
     else:
         threshold = 0.08
 
+
     num_filtered_patches = tf.Variable(0)
 
     # Filter function which filters the dataset after total image variation.
@@ -98,23 +99,30 @@ def main(argv):
         num_pixels = sample['patch'].get_shape().num_elements()
         var_per_pixel = (variation / num_pixels)
         no_background = var_per_pixel > threshold
-        if no_background == False:
-            if num_filtered_patches % 1 == 0:
-                # Assign special background label
-                sample['label'] = len(args.labels)
-                sample['no_background'] = True
-            else:
-                sample['no_background'] = False
-            num_filtered_patches += 1
-        else:
-            sample['no_background'] = True
-        return sample
+
+        def true_fn():
+             sample.update({'no_background': True})
+             return sample
+
+        def false_fn():
+            def _true_fn_lvl2():
+                sample.update({'label':tf.reshape(tf.convert_to_tensor(len(args.labels), dtype=tf.int64), [1]),'no_background': True})
+                return sample
+
+            def _false_fn_lvl2():
+                sample.update({'no_background': False})
+                return sample
+
+            pred = tf.equal(num_filtered_patches.value() % 10, 0)
+            num_filtered_patches.assign_add(1)            
+            return tf.cond(pred,true_fn=_true_fn_lvl2,false_fn=_false_fn_lvl2)       
+        return tf.cond(no_background,true_fn=true_fn, false_fn=false_fn)
 
     
     if args.no_filter == True:
         dataset = patches_dataset
     else:
-        dataset = patches_dataset.map(lambda sample: add_background_info(sample)).filter(lambda sample: sample['no_background'])
+        dataset = patches_dataset.map(add_background_info).filter(lambda sample: sample['no_background'])
     
     dataset = dataset.map(lambda sample: (sample['patch'], sample['label']))
     dataset = dataset.take(args.num_samples).shuffle(100000)
