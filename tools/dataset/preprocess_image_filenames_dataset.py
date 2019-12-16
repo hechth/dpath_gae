@@ -30,8 +30,9 @@ def main(argv):
     parser.add_argument('num_samples', type=int, help='Size of output dataset')
     parser.add_argument('labels', type=lambda s: [item for item in s.split(',')], help="Comma separated list of labels to find in filenames.")
     parser.add_argument('--image_size', type=int, dest='image_size', help='Image size for files pointed to by filename')
+    parser.add_argument('--no_filter', dest='no_filter', action='store_true', default=False, help='Whether to apply total image variation filtering.')
     parser.add_argument('--threshold', type=float, dest='threshold', help='Threshold for filtering the samples according to variation.')
-
+    parser.add_argument('--subsampling_factor',type=int, dest='subsampling_factor', default=1, help='Subsampling factor to use to downsample images.')
     args = parser.parse_args()
 
     labels_table = tf.contrib.lookup.index_table_from_tensor(mapping=args.labels)
@@ -58,6 +59,10 @@ def main(argv):
     else:
         images_dataset = filename_dataset.map(lambda feature: {'image': ctfi.load(feature['filename'], channels=3), 'label': labels_table.lookup(_extract_label(feature['filename']))})
 
+
+    if args.subsampling_factor > 1:
+        images_dataset = images_dataset.map(lambda feature: {'image': ctfi.subsample(feature['image'], args.subsampling_factor), 'label': feature['label']})
+
     def _filter_func_label(features):
         label = features['label']
         result = label > -1
@@ -77,20 +82,42 @@ def main(argv):
 
     patches_dataset = images_dataset.map(_split_patches).apply(tf.data.experimental.unbatch())
 
+    patches_dataset = patches_dataset.map(lambda patch, label: {'patch': patch, 'label': label})
+
     if args.threshold is not None:
         threshold = args.threshold
     else:
         threshold = 0.08
 
+    num_filtered_patches = tf.Variable(0)
+
     # Filter function which filters the dataset after total image variation.
     # See: https://www.tensorflow.org/versions/r1.12/api_docs/python/tf/image/total_variation
-    def _filter_func(sample)->bool:
-        variation = tf.image.total_variation(sample[0])
-        num_pixels = sample[0].get_shape().num_elements()
+    def add_background_info(sample):
+        variation = tf.image.total_variation(sample['patch'])
+        num_pixels = sample['patch'].get_shape().num_elements()
         var_per_pixel = (variation / num_pixels)
-        return var_per_pixel > threshold
+        no_background = var_per_pixel > threshold
+        if no_background == False:
+            if num_filtered_patches % 1 == 0:
+                # Assign special background label
+                sample['label'] = len(args.labels)
+                sample['no_background'] = True
+            else:
+                sample['no_background'] = False
+            num_filtered_patches += 1
+        else:
+            sample['no_background'] = True
+        return sample
 
-    dataset = patches_dataset.filter(lambda patch, label: _filter_func((patch, label))).take(args.num_samples).shuffle(100000)
+    
+    if args.no_filter == True:
+        dataset = patches_dataset
+    else:
+        dataset = patches_dataset.map(lambda sample: add_background_info(sample)).filter(lambda sample: sample['no_background'])
+    
+    dataset = dataset.map(lambda sample: (sample['patch'], sample['label']))
+    dataset = dataset.take(args.num_samples).shuffle(100000)
 
     writer = tf.io.TFRecordWriter(args.output_dataset)
 
@@ -98,7 +125,9 @@ def main(argv):
     cutil.publish(args.output_dataset)
 
     def _encode_func(sample):
-        return ctfd.encode({'patch': ctf.float_feature(sample[0].numpy().flatten()), 'label': ctf.int64_feature(sample[1].numpy())})
+        patch_np = sample[0].numpy().flatten()
+        label_np = sample[1].numpy()
+        return ctfd.encode({'patch': ctf.float_feature(patch_np), 'label': ctf.int64_feature(label_np)})
 
     # Iterate over whole dataset and write serialized examples to file.
     # See: https://www.tensorflow.org/versions/r1.12/api_docs/python/tf/contrib/eager/Iterator
