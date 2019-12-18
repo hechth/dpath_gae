@@ -12,8 +12,9 @@ import cv2
 def get_distribution_for_patch(export_dir, patch):
     latest_checkpoint = tf.train.latest_checkpoint(export_dir)   
     saver = tf.train.import_meta_graph(latest_checkpoint + '.meta', import_scope='imported')
+    graph = tf.get_default_graph()
 
-    with tf.Session(graph=tf.get_default_graph()).as_default() as sess:
+    with tf.Session(graph=graph).as_default() as sess:
         # Load image and extract patch from it and create distribution.
         # Lower triangular cov
         patch_tensor = tf.convert_to_tensor(patch)
@@ -27,6 +28,7 @@ def get_distribution_for_patch(export_dir, patch):
         patch_mean_np = sess.run(patch_mean)
         # Return real covariance matrix
         patch_cov_np = sess.run(tf.matmul(patch_cov, patch_cov, transpose_b=True))
+        tf.reset_default_graph()
         sess.close()
     return patch_mean_np, patch_cov_np
 
@@ -71,7 +73,11 @@ def main(argv):
     patch = cv2.imread(filename_patch).astype(np.float32)    
     mean, cov = get_distribution_for_patch(export_dir, patch)
     print(mean, cov)
+    print(multivariate_squared_hellinger_distance(mean[0,:],cov[0,:,:],np.zeros_like(mean)[0,:], np.identity(mean.size)))
 
+    # Test if second evaluation works as well
+    mean, cov = get_distribution_for_patch(export_dir, patch)
+    print(mean, cov)
     print(multivariate_squared_hellinger_distance(mean[0,:],cov[0,:,:],np.zeros_like(mean)[0,:], np.identity(mean.size)))
 
 if __name__ == "__main__":
