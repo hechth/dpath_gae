@@ -41,5 +41,5 @@ XDG_CACHE_HOME
 
 #Stored numpy data
 *.npy
-!data/models/mean.npy
-!data/models/variance.npy
+!data/models/*/*.npy
+!data/models/*/*.npy
