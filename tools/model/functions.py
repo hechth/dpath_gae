@@ -32,6 +32,19 @@ def get_distribution_for_patch(export_dir, patch):
         sess.close()
     return patch_mean_np, patch_cov_np
 
+def init_session_and_get_op(export_dir, patch_shape):
+    latest_checkpoint = tf.train.latest_checkpoint(export_dir)   
+    saver = tf.train.import_meta_graph(latest_checkpoint + '.meta', import_scope='imported')
+    graph = tf.get_default_graph()
+    sess = tf.Session(graph=graph)
+
+    patch_placeholder = tf.placeholder(tf.float32,shape=patch_shape)
+
+    patch_cov, patch_mean = tf.contrib.graph_editor.graph_replace([sess.graph.get_tensor_by_name('imported/z_covariance_lower_tri/MatrixBandPart:0'),sess.graph.get_tensor_by_name('imported/z_mean/BiasAdd:0')] ,{ sess.graph.get_tensor_by_name('imported/patch:0'): patch_placeholder })
+    saver.restore(sess,latest_checkpoint)
+
+    return lambda patch: sess.run([patch_mean,tf.matmul(patch_cov, patch_cov, transpose_b=True)],feed_dict={patch_placeholder : patch})
+
 def multivariate_squared_hellinger_distance(X_mean, X_cov, Y_mean, Y_cov):
     """
     See https://en.wikipedia.org/wiki/Hellinger_distance for information on hellinger distance.
@@ -70,15 +83,25 @@ def main(argv):
     filename_patch = os.path.join(git_root,'data','images','CD3_level_1_cropped_patch_32x32.png')
     export_dir = os.path.join(git_root,'data','models','gae')
 
-    patch = cv2.imread(filename_patch).astype(np.float32)    
-    mean, cov = get_distribution_for_patch(export_dir, patch)
-    print(mean, cov)
+    patch = np.expand_dims(cv2.imread(filename_patch).astype(np.float32),0)
+    #mean, cov = get_distribution_for_patch(export_dir, patch)
+    #print(mean, cov)
+    #print(multivariate_squared_hellinger_distance(mean[0,:],cov[0,:,:],np.zeros_like(mean)[0,:], np.identity(mean.size)))
+    
+    op = init_session_and_get_op(export_dir, np.shape(patch))
+
+    mean, cov = op(patch)
+    print(mean, cov)    
     print(multivariate_squared_hellinger_distance(mean[0,:],cov[0,:,:],np.zeros_like(mean)[0,:], np.identity(mean.size)))
 
-    # Test if second evaluation works as well
-    mean, cov = get_distribution_for_patch(export_dir, patch)
-    print(mean, cov)
-    print(multivariate_squared_hellinger_distance(mean[0,:],cov[0,:,:],np.zeros_like(mean)[0,:], np.identity(mean.size)))
+    mean2, cov2 = op(patch)
+    print(mean2, cov2)    
+    print(multivariate_squared_hellinger_distance(mean2[0,:],cov2[0,:,:],np.zeros_like(mean2)[0,:], np.identity(mean2.size)))
+
+    ## Test if second evaluation works as well
+    #mean, cov = get_distribution_for_patch(export_dir, patch)
+    #print(mean, cov)
+    #print(multivariate_squared_hellinger_distance(mean[0,:],cov[0,:,:],np.zeros_like(mean)[0,:], np.identity(mean.size)))
 
 if __name__ == "__main__":
     main(sys.argv[1:])
