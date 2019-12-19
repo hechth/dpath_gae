@@ -1,0 +1,384 @@
+{
+    "datasets": {
+        "training": {
+            "filename": "/sdc1/datasets/level1/train_ds_20000000_64_0.tfrec",
+            "size": 20000000,
+            "epochs": 40
+        },
+        "batch":256,
+        "shuffle_size":250000,
+        "features":[
+            {
+                "shape": [64,64,3],
+                "key": "patch",
+                "dtype": "tf.float32"
+            },
+            {
+                "shape": [1],
+                "key": "label",
+                "dtype": "tf.int64"
+            }
+        ]
+    },
+    "model": {
+        "inputs":{
+            "features":[
+                {
+                    "shape": [64,64,3],
+                    "key": "patch",
+                    "dtype": "tf.float32"
+                }
+            ],
+            "labels": {
+                "shape": [1],
+                "dtype": "tf.int64",
+                "num_classes": 9,
+                "names": ["HE","CD3","CD8","PD1","FOXP3","CD45RO","CAIX","PDL1","CD68"]
+            }
+        },
+        "parameters": {
+            "beta": 6,
+            "alpha": 2,
+            "delta": 4,
+            "stain_code_size":8,
+            "latent_space_size":62
+        },
+        "components": [      
+            {
+                "name":"encoder",
+                "input": "patch",
+                "layers": [
+                    {
+                        "type":"resnet_v2_block",
+                        "stride":1,
+                        "base_depth":32,
+                        "num_units": 2
+                    },
+                    {
+                        "type":"batch_norm",
+                        "axis": [1,2,3]
+                    },
+                    {
+                        "type":"activation",
+                        "function":"tf.nn.relu"
+                    },                    
+                    {
+                        "type":"max_pool",
+                        "pool_size":[2,2],
+                        "strides":[2,2]
+                    },
+                    {
+                        "type":"resnet_v2_block",
+                        "stride":1,
+                        "base_depth":32,
+                        "num_units": 2
+                    },
+                    {
+                        "type":"batch_norm",
+                        "axis": [1,2,3]
+                    },
+                    {
+                        "type":"activation",
+                        "function":"tf.nn.relu"
+                    },                    
+                    {
+                        "type":"max_pool",
+                        "pool_size":[2,2],
+                        "strides":[2,2]
+                    },
+                    {
+                        "type":"resnet_v2_block",
+                        "stride":1,
+                        "base_depth":32,
+                        "num_units": 2
+                    },
+                    {
+                        "type":"batch_norm",
+                        "axis": [1,2,3]
+                    },
+                    {
+                        "type":"activation",
+                        "function":"tf.nn.relu"
+                    },                   
+                    {
+                        "type":"max_pool",
+                        "pool_size":[2,2],
+                        "strides":[2,2]
+                    },
+                    {
+                        "type":"resnet_v2_block",
+                        "stride":1,
+                        "base_depth":32,
+                        "num_units": 2
+                    },
+                    {
+                        "type":"batch_norm",
+                        "axis": [1,2,3]
+                    },
+                    {
+                        "type":"activation",
+                        "function":"tf.nn.relu"
+                    },
+                    {
+                        "type":"max_pool",
+                        "pool_size":[2,2],
+                        "strides":[2,2]
+                    },
+                    {
+                        "type":"resnet_v2_block",
+                        "stride":1,
+                        "base_depth":32,
+                        "num_units": 2
+                    },
+                    {
+                        "type":"batch_norm",
+                        "axis": [1,2,3]
+                    },
+                    {
+                        "type":"activation",
+                        "function":"tf.nn.relu"
+                    },
+                    {
+                        "type":"max_pool",
+                        "pool_size":[2,2],
+                        "strides":[2,2]
+                    },
+                    {
+                        "type":"resnet_v2_block",
+                        "stride":1,
+                        "base_depth":32,
+                        "num_units": 2
+                    },
+                    {
+                        "type":"batch_norm",
+                        "axis": [1,2,3]
+                    },
+                    {
+                        "type":"activation",
+                        "function":"tf.nn.relu"
+                    },
+                    {
+                        "type":"max_pool",
+                        "pool_size":[2,2],
+                        "strides":[2,2]
+                    },
+                    {
+                        "type":"flatten"
+                    }
+                ],
+                "output":"encoded_patch"
+            },
+            {
+                "name":"sampler",
+                "input":"encoded_patch",
+                "layers": [
+                    {
+                        "type":"sampler_v2",
+                        "dims":62,
+                        "name":"z"
+                    }
+                ],
+                "output":["distribution", "code"]
+            },
+            {
+                "name":"classifier",
+                "input": "code",
+                "layers":[
+                    {
+                        "type":"flatten"
+                    },
+                    {
+                        "type":"slice",
+                        "begin":[0],
+                        "size":[8],
+                        "name:":"z_stain"
+                    },
+                    {
+                        "type":"dense",
+                        "units":9,
+                        "activation":"tf.nn.sigmoid",
+                        "trainable": false
+                    }
+                ],
+                "output":"predictions_classifier"
+            },
+            {
+                "name":"discriminator",
+                "input": "code",
+                "layers":[
+                    {
+                        "type":"flatten"
+                    },
+                    {
+                        "type":"slice",
+                        "begin":[8],
+                        "size":[54],
+                        "name:":"z_structure"
+                    },
+                    {
+                        "type":"dense",
+                        "units":9,
+                        "activation":"tf.nn.sigmoid",
+                        "trainable": false
+                    }
+                ],
+                "output":"predictions_discriminator"
+            },
+            {
+                "name": "decoder",
+                "input":"code",
+                "layers": [
+                    {
+                        "type":"reshape",
+                        "shape":[1,1,62]
+                    },                    
+                    {
+                        "type":"conv",
+                        "filters": 64,
+                        "padding": "valid",
+                        "kernel_size": [2,2],
+                        "strides":[1,1],
+                        "transpose": true,
+                        "trainable":false
+                    },
+                    {
+                        "type":"batch_norm",
+                        "axis": [1,2,3]
+                    },
+                    {
+                        "type":"activation",
+                        "function":"tf.nn.relu"
+                    },
+                    {
+                        "type":"conv",
+                        "filters": 64,
+                        "padding": "valid",
+                        "kernel_size": [3,3],
+                        "strides":[1,1],
+                        "transpose": true,
+                        "trainable":false
+                    },
+                    {
+                        "type":"batch_norm",
+                        "axis": [1,2,3]
+                    },
+                    {
+                        "type":"activation",
+                        "function":"tf.nn.relu"
+                    },
+                    {
+                        "type":"conv",
+                        "filters": 64,
+                        "kernel_size": [3,3],
+                        "strides":[1,1],
+                        "transpose": true,
+                        "trainable":false
+                    },
+                    {
+                        "type":"batch_norm",
+                        "axis": [1,2,3]
+                    },
+                    {
+                        "type":"activation",
+                        "function":"tf.nn.relu"
+                    },
+                    {
+                        "type": "avg_unpool",
+                        "factor":2
+                    },
+                    {
+                        "type":"conv",
+                        "filters": 64,
+                        "kernel_size": [3,3],
+                        "strides":[1,1],
+                        "transpose": true,
+                        "trainable":false
+                    },
+                    {
+                        "type":"batch_norm",
+                        "axis": [1,2,3]
+                    },
+                    {
+                        "type":"activation",
+                        "function":"tf.nn.relu"
+                    },
+                    {
+                        "type": "avg_unpool",
+                        "factor":2
+                    },
+                    {
+                        "type":"conv",
+                        "filters": 64,
+                        "kernel_size": [3,3],
+                        "strides":[1,1],
+                        "transpose": true,
+                        "trainable":false
+                    },
+                    {
+                        "type":"batch_norm",
+                        "axis": [1,2,3]
+                    },
+                    {
+                        "type":"activation",
+                        "function":"tf.nn.relu"
+                    },
+                    {
+                        "type": "avg_unpool",
+                        "factor":2
+                    },                    
+                    {
+                        "type":"conv",
+                        "filters": 64,
+                        "kernel_size": [3,3],
+                        "strides":[1,1],
+                        "transpose": true,
+                        "trainable":false
+                    },
+                    {
+                        "type":"batch_norm",
+                        "axis": [1,2,3]
+                    },
+                    {
+                        "type":"activation",
+                        "function":"tf.nn.relu"
+                    },
+                    {
+                        "type": "avg_unpool",
+                        "factor":2
+                    },
+                    {
+                        "type":"conv",
+                        "filters": 64,
+                        "kernel_size": [3,3],
+                        "strides":[1,1],
+                        "transpose": true,
+                        "trainable":false
+                    },
+                    {
+                        "type":"batch_norm",
+                        "axis": [1,2,3]
+                    },
+                    {
+                        "type":"activation",
+                        "function":"tf.nn.relu"
+                    },
+                    {
+                        "type":"conv",
+                        "filters": 3,
+                        "kernel_size": [1,1],
+                        "strides":[1,1],
+                        "transpose": true,
+                        "trainable":false
+                    }
+                ],
+                "output":"logits"
+            }
+        ],
+        "embeddings": {
+            "width": 64,
+            "height": 64,
+            "stain_code_size": 8
+        }
+    }
+}
+
