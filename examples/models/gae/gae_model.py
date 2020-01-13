@@ -66,9 +66,12 @@ def my_model(features, labels, mode, params, config):
     
     #latent_loss = tf.reduce_mean(ctfm.multivariate_latent_loss(tensors['mean'], tensors['covariance']))
     #reconstr_loss = tf.losses.mean_squared_error(tensors['patch'], tensors['logits'])
-    reconstr_squared_diff = tf.math.squared_difference(tensors['patch'], tensors['logits'])
-    batch_reconstruction_loss = tf.reduce_sum(reconstr_squared_diff,axis=[1,2,3])
-    reconstr_loss = tf.reduce_mean(batch_reconstruction_loss)
+    
+    #reconstr_squared_diff = tf.math.squared_difference(tensors['patch'], tensors['logits'])
+    #batch_reconstruction_loss = tf.reduce_sum(reconstr_squared_diff,axis=[1,2,3])
+    #reconstr_loss = tf.reduce_mean(batch_reconstruction_loss)
+
+    reconstr_loss = tf.reduce_mean(tf.reduce_sum(tf.losses.absolute_difference(tensors['patch'], tensors['logits'], reduction=tf.losses.Reduction.NONE),axis=[1,2,3]))
 
     discriminator_loss = tf.losses.sparse_softmax_cross_entropy(labels=labels, logits=tensors['predictions_discriminator'])
     classifier_loss = tf.losses.sparse_softmax_cross_entropy(labels=labels, logits=tensors['predictions_classifier'])

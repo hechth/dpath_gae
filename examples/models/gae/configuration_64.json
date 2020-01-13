@@ -1,12 +1,12 @@
 {
     "datasets": {
         "training": {
-            "filename": "/sdc1/datasets/level1/train_ds_20000000_64_0.tfrec",
-            "size": 20000000,
-            "epochs": 30
+            "filename": "/sdc1/datasets/level1/train_ds_10000000_64_5x.tfrec",
+            "size": 10000000,
+            "epochs": 60
         },
         "batch":256,
-        "shuffle_size":250000,
+        "shuffle_size":200000,
         "features":[
             {
                 "shape": [64,64,3],
@@ -32,8 +32,8 @@
             "labels": {
                 "shape": [1],
                 "dtype": "tf.int64",
-                "num_classes": 9,
-                "names": ["HE","CD3","CD8","PD1","FOXP3","CD45RO","CAIX","PDL1","CD68"]
+                "num_classes": 10,
+                "names": ["HE","CD3","CD8","PD1","FOXP3","CD45RO","CAIX","PDL1","CD68","BG"]
             }
         },
         "parameters": {
@@ -195,7 +195,7 @@
                     },
                     {
                         "type":"dense",
-                        "units":9,
+                        "units":10,
                         "activation":"tf.nn.sigmoid",
                         "trainable": false
                     }
@@ -217,7 +217,7 @@
                     },
                     {
                         "type":"dense",
-                        "units":9,
+                        "units":10,
                         "activation":"tf.nn.sigmoid",
                         "trainable": false
                     }

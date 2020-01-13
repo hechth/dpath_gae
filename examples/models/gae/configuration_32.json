@@ -1,9 +1,9 @@
 {
     "datasets": {
         "training": {
-            "filename": "/home/hecht/build/thesis/datasets/train_ds_40000000_32_0.tfrec",
+            "filename": "/sdc1/datasets/level1/train_ds_40000000_32_5x.tfrec",
             "size": 40000000,
-            "epochs": 1
+            "epochs": 80
         },
         "batch":256,
         "shuffle_size":500000,
@@ -32,15 +32,15 @@
             "labels": {
                 "shape": [1],
                 "dtype": "tf.int64",
-                "num_classes": 9,
-                "names": ["HE","CD3","CD8","PD1","FOXP3","CD45RO","CAIX","PDL1","CD68"]
+                "num_classes": 10,
+                "names": ["HE","CD3","CD8","PD1","FOXP3","CD45RO","CAIX","PDL1","CD68","BG"]
             }
         },
         "parameters": {
-            "beta": 16,
-            "alpha": 12,
-            "delta": 12,
-            "stain_code_size":1,
+            "beta": 6,
+            "alpha": 2,
+            "delta": 4,
+            "stain_code_size":6,
             "latent_space_size":18
         },
         "components": [      
@@ -171,12 +171,12 @@
                     {
                         "type":"slice",
                         "begin":[0],
-                        "size":[1],
+                        "size":[6],
                         "name:":"z_stain"
                     },
                     {
                         "type":"dense",
-                        "units":9,
+                        "units":10,
                         "activation":"tf.nn.sigmoid",
                         "trainable": false
                     }
@@ -192,13 +192,13 @@
                     },
                     {
                         "type":"slice",
-                        "begin":[1],
-                        "size":[17],
+                        "begin":[6],
+                        "size":[12],
                         "name:":"z_structure"
                     },
                     {
                         "type":"dense",
-                        "units":9,
+                        "units":10,
                         "activation":"tf.nn.sigmoid",
                         "trainable": false
                     }
@@ -338,7 +338,7 @@
         "embeddings": {
             "width": 32,
             "height": 32,
-            "stain_code_size": 1
+            "stain_code_size": 6
         }
     }
 }

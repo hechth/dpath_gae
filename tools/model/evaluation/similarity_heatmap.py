@@ -45,7 +45,8 @@ def main(argv):
     parser.add_argument('method', type=str, help='Method to use to measure similarity, one of KLD, SKLD, BD, HD, SQHD.')
     parser.add_argument('--stain_code_size', type=int, dest='stain_code_size', default=0,
         help='Optional: Size of the stain code to use, which is skipped for similarity estimation')
-
+    parser.add_argument('--rotate', type=float, dest='angle', default=0,
+        help='Optional: rotation angle to rotate target image')
     args = parser.parse_args()
 
     mean = np.load(args.mean)
@@ -88,6 +89,7 @@ def main(argv):
 
         #Load image for which to create the heatmap
         target_image = ctfi.load(args.target_filename,height=args.target_image_size[0], width=args.target_image_size[1])
+        target_image = tf.contrib.image.rotate(target_image,np.radians(args.angle))
 
         #Iteration over image regions that we can load
         num_iterations = int(args.target_image_size[0] / max_num_rows) + 1

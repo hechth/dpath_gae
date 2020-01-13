@@ -23,8 +23,9 @@ def get_mean_and_cov(X, latent_code_size):
     return X_mean, X_cov
 
 def get_mean_and_cov_tf(X, latent_code_size):
-    X_mean = X[:latent_code_size]
-    X_cov = tf.reshape(X[latent_code_size:],(latent_code_size, latent_code_size))
+    batch = X.get_shape().as_list()[0]
+    X_mean = X[:,:latent_code_size]
+    X_cov = tf.reshape(X[:, latent_code_size:],(batch, latent_code_size, latent_code_size))
     X_cov = tf.matmul(X_cov, X_cov, transpose_b=True)
     return X_mean, X_cov
 
@@ -116,6 +117,7 @@ def main(argv):
         help='Number of elements to keep in leaf nodes of search tree.')
     parser.add_argument('--method', type=str, dest='method', default='SKLD', help='Method to use to measure similarity, one of KLD, SKLD, BD, HD, SQHD.')
     parser.add_argument('--num_neighbours', type=int, dest='num_neighbours', default=1, help='k for kNN')
+    parser.add_argument('--subsampling_factor', type=int, dest='subsampling_factor', default=1, help='Factor to subsample source and target image.')
 
 
     args = parser.parse_args()
@@ -139,12 +141,12 @@ def main(argv):
     with tf.Session(graph=tf.get_default_graph()).as_default() as sess:
 
         # Load image and extract patch from it and create distribution.
-        source_image = tf.expand_dims(ctfi.load(args.source_filename,height=args.source_image_size[0], width=args.source_image_size[1]),0)
+        source_image = ctfi.subsample(tf.expand_dims(ctfi.load(args.source_filename,height=args.source_image_size[0], width=args.source_image_size[1]),0),args.subsampling_factor)
         im_source = (sess.run(source_image[0]) * 255).astype(np.uint8)
-        target_image =  tf.expand_dims(ctfi.load(args.target_filename,height=args.target_image_size[0], width=args.target_image_size[1]),0)
+        target_image = ctfi.subsample(tf.expand_dims(ctfi.load(args.target_filename,height=args.target_image_size[0], width=args.target_image_size[1]),0),args.subsampling_factor)
         im_target = (sess.run(target_image[0]) * 255).astype(np.uint8)
 
-        orb = cv2.ORB_create(100000)        
+        orb = cv2.ORB_create(10000)        
         source_keypoints, source_descriptors_cv = orb.detectAndCompute(im_source, None)
         target_keypoints, target_descriptors_cv = orb.detectAndCompute(im_target, None)
 
@@ -154,7 +156,7 @@ def main(argv):
         
         def remove_overlapping(x, keypoints):            
             for p in keypoints:
-                if p != x and x.overlap(x,p) > 0.5:
+                if p != x and x.overlap(x,p) > 0.8:
                     keypoints.remove(p)
             return keypoints
         
@@ -173,17 +175,24 @@ def main(argv):
         source_keypoints.sort(key = lambda x: x.response, reverse=True)
         target_keypoints.sort(key = lambda x: x.response, reverse=True)
 
-        source_keypoints = source_keypoints[:args.num_keypoints]
-        target_keypoints = target_keypoints[:args.num_keypoints]
+        all_source_keypoints = source_keypoints[:args.num_keypoints]
+        all_target_keypoints = target_keypoints[:args.num_keypoints]
+
+        source_descriptors_eval = []
+        target_descriptors_eval = []
 
         def get_patch_at(keypoint, image):
             return tf.image.extract_glimpse(image,[args.patch_size, args.patch_size], [keypoint.pt], normalized=False, centered=False)
 
-        source_patches = normalize(tf.concat(list(map(lambda x: get_patch_at(x, source_image), source_keypoints)),0))
-        target_patches = normalize(tf.concat(list(map(lambda x: get_patch_at(x, target_image), target_keypoints)),0))
 
-        source_cov, source_mean  = tf.contrib.graph_editor.graph_replace([sess.graph.get_tensor_by_name('imported/z_covariance_lower_tri/MatrixBandPart:0'),sess.graph.get_tensor_by_name('imported/z_mean/BiasAdd:0')] ,{ sess.graph.get_tensor_by_name('imported/patch:0'): source_patches })
-        target_cov, target_mean = tf.contrib.graph_editor.graph_replace([sess.graph.get_tensor_by_name('imported/z_covariance_lower_tri/MatrixBandPart:0'),sess.graph.get_tensor_by_name('imported/z_mean/BiasAdd:0')] ,{ sess.graph.get_tensor_by_name('imported/patch:0'): target_patches })
+        #source_patches = normalize(tf.concat(list(map(lambda x: get_patch_at(x, source_image), source_keypoints)),0))
+        #target_patches = normalize(tf.concat(list(map(lambda x: get_patch_at(x, target_image), target_keypoints)),0))
+
+        source_patches_placeholder = tf.placeholder(tf.float32,shape=[1000, args.patch_size, args.patch_size, 3])
+        target_patches_placeholder = tf.placeholder(tf.float32,shape=[1000, args.patch_size, args.patch_size, 3])
+
+        source_cov, source_mean  = tf.contrib.graph_editor.graph_replace([sess.graph.get_tensor_by_name('imported/z_covariance_lower_tri/MatrixBandPart:0'),sess.graph.get_tensor_by_name('imported/z_mean/BiasAdd:0')] ,{ sess.graph.get_tensor_by_name('imported/patch:0'): source_patches_placeholder })
+        target_cov, target_mean = tf.contrib.graph_editor.graph_replace([sess.graph.get_tensor_by_name('imported/z_covariance_lower_tri/MatrixBandPart:0'),sess.graph.get_tensor_by_name('imported/z_mean/BiasAdd:0')] ,{ sess.graph.get_tensor_by_name('imported/patch:0'): target_patches_placeholder })
         
         batch, latent_code_size = target_mean.get_shape().as_list()
         structure_code_size = latent_code_size - args.stain_code_size
@@ -212,7 +221,7 @@ def main(argv):
 
             trace_term = tf.linalg.trace(tf.matmul(Y_cov_inv, X_cov))
             diff_mean = tf.expand_dims(Y_mean - X_mean, axis=-1)
-            middle_term = tf.matmul(tf.transpose(diff_mean), tf.matmul(Y_cov_inv, diff_mean))
+            middle_term = tf.matmul(diff_mean, tf.matmul(Y_cov_inv, diff_mean), transpose_a=True)
             determinant_term = tf.log(tf.linalg.det(Y_cov) / tf.linalg.det(X_cov))
 
             value = 0.5 * (trace_term + middle_term - structure_code_size + determinant_term)
@@ -222,7 +231,7 @@ def main(argv):
             return multi_kl_div(X,Y) + multi_kl_div(Y,X)
 
         def sym_kl_div_tf(X,Y):
-            return multi_kl_div_tf(X,Y) + multi_kl_div_tf(Y,X)
+            return tf.squeeze(multi_kl_div_tf(X,Y) + multi_kl_div_tf(Y,X))
 
         def sqhd(X,Y):
             return multivariate_squared_hellinger_distance(X,Y,structure_code_size)
@@ -232,10 +241,23 @@ def main(argv):
             Y_mean, Y_cov = get_mean_and_cov(Y, structure_code_size)
             return bhattacharyya_distance(X_mean, X_cov, Y_mean, Y_cov)
 
+        def centroid_distance(X,Y):
+            X_mean, X_cov = get_mean_and_cov(X, structure_code_size)
+            Y_mean, Y_cov = get_mean_and_cov(Y, structure_code_size)
+            return np.linalg.norm(X_mean - Y_mean)
+
         saver.restore(sess,latest_checkpoint)
 
-        source_descriptors_eval = sess.run(source_descriptors)
-        target_descriptors_eval = sess.run(target_descriptors)
+        for i in range(int(args.num_keypoints / 1000)):
+            start = i * 1000
+            end = (i+1) * 1000
+            
+            source_patches = sess.run(normalize(tf.concat(list(map(lambda x: get_patch_at(x, source_image), source_keypoints[start:end])),0)))
+            target_patches = sess.run(normalize(tf.concat(list(map(lambda x: get_patch_at(x, target_image), target_keypoints[start:end])),0)))
+            
+            source_descriptors_eval.extend(sess.run(source_descriptors, feed_dict={source_patches_placeholder : source_patches}))
+            target_descriptors_eval.extend(sess.run(target_descriptors, feed_dict={target_patches_placeholder : target_patches}))
+        
 
         #matches = match_descriptors(source_descriptors, target_descriptors, metric=lambda x,y: sym_kl_div(x,y), cross_check=True)
         if args.method == 'SKLD':
@@ -244,13 +266,23 @@ def main(argv):
             metric = sqhd
         elif args.method == 'BD':
             metric = bd
+        elif args.method == 'CD':
+            metric = centroid_distance
         else:
             metric = sym_kl_div
 
-        knn_source = sklearn.neighbors.NearestNeighbors(n_neighbors=5, radius=1.0, algorithm='ball_tree', leaf_size=args.leaf_size, metric=metric)
-        knn_source.fit(target_descriptors_eval)
+        # Computation of distance metric
+        tf_src_descs = tf.convert_to_tensor(np.array(source_descriptors_eval))
+        tf_trgt_descs = tf.convert_to_tensor(np.array(target_descriptors_eval))
+        tf_dist_op = sym_kl_div_tf(tf_src_descs, tf_trgt_descs)
+        
+        distances = sess.run(tf_dist_op)
+        indices = np.argmin(distances,1)
+        
 
-        distances, indices = knn_source.kneighbors(source_descriptors_eval, n_neighbors=args.num_neighbours)
+        #knn_source = sklearn.neighbors.NearestNeighbors(n_neighbors=5, radius=1.0, algorithm='ball_tree', leaf_size=args.leaf_size, metric=metric)
+        #knn_source.fit(target_descriptors_eval)
+        #distances, indices = knn_source.kneighbors(source_descriptors_eval, n_neighbors=args.num_neighbours)
         matches = list(zip(range(len(indices)), indices, distances))
         # Sort matches by score
         
