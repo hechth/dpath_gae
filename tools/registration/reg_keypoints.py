@@ -15,6 +15,7 @@ import matplotlib.pyplot as plt
 
 from skimage.feature import (match_descriptors, corner_harris, corner_peaks, ORB, plot_matches)
 import sklearn.neighbors
+from scipy.spatial.distance import cdist
 
 def get_mean_and_cov(X, latent_code_size):
     X_mean = X[:latent_code_size]
@@ -146,12 +147,12 @@ def main(argv):
         target_image = ctfi.subsample(tf.expand_dims(ctfi.load(args.target_filename,height=args.target_image_size[0], width=args.target_image_size[1]),0),args.subsampling_factor)
         im_target = (sess.run(target_image[0]) * 255).astype(np.uint8)
 
-        orb = cv2.ORB_create(10000)        
+        orb = cv2.ORB_create(20000)        
         source_keypoints, source_descriptors_cv = orb.detectAndCompute(im_source, None)
         target_keypoints, target_descriptors_cv = orb.detectAndCompute(im_target, None)
 
-        #source_keypoints.sort(key = lambda x: x.response, reverse=False)
-        #target_keypoints.sort(key = lambda x: x.response, reverse=False)
+        source_keypoints.sort(key = lambda x: x.response, reverse=False)
+        target_keypoints.sort(key = lambda x: x.response, reverse=False)
 
         
         def remove_overlapping(x, keypoints):            
@@ -169,8 +170,8 @@ def main(argv):
                 i += 1
             return keypoints
         
-        #source_keypoints = filter_keypoints(source_keypoints)
-        #target_keypoints = filter_keypoints(target_keypoints)
+        source_keypoints = filter_keypoints(source_keypoints)
+        target_keypoints = filter_keypoints(target_keypoints)
 
         source_keypoints.sort(key = lambda x: x.response, reverse=True)
         target_keypoints.sort(key = lambda x: x.response, reverse=True)
@@ -182,7 +183,7 @@ def main(argv):
         target_descriptors_eval = []
 
         def get_patch_at(keypoint, image):
-            return tf.image.extract_glimpse(image,[args.patch_size, args.patch_size], [keypoint.pt], normalized=False, centered=False)
+            return tf.image.extract_glimpse(image,[args.patch_size, args.patch_size], [keypoint], normalized=False, centered=False)
 
 
         #source_patches = normalize(tf.concat(list(map(lambda x: get_patch_at(x, source_image), source_keypoints)),0))
@@ -251,17 +252,39 @@ def main(argv):
             Y_mean, Y_cov = get_mean_and_cov(Y, structure_code_size)
             return np.linalg.norm(X_mean - Y_mean)
 
+        coords = tf.placeholder(tf.float32, shape=[1000, 2])
+        source_patches = tf.map_fn(lambda x: get_patch_at(x, source_image),coords)
+        target_patches = tf.map_fn(lambda x: get_patch_at(x, target_image),coords)
+
+        # Computation of distance metric
+        descriptor_length = descriptors.get_shape().as_list()[1]
+        tf_src_descs = tf.placeholder(tf.float32,shape=[args.num_keypoints, descriptor_length])
+        tf_trgt_descs = tf.placeholder(tf.float32,shape=[args.num_keypoints, descriptor_length])
+
+        def cdist_tf(X,Y):
+            X_mean = X[:,args.stain_code_size:]
+            Y_mean = Y[:,args.stain_code_size:]
+            
+            diff_means_einsum = tf.sqrt(tf.einsum('ij,ij->i',X_mean,X_mean)[:,None] + tf.einsum('ij,ij->i',Y_mean,Y_mean) - 2 * tf.matmul(X_mean, Y_mean, transpose_b=True))
+            return diff_means_einsum
+
+        tf_dist_op = cdist_tf(tf_src_descs, tf_trgt_descs)
+
         saver.restore(sess,latest_checkpoint)
 
         for i in range(int(args.num_keypoints / 1000)):
             start = i * 1000
             end = (i+1) * 1000
             
-            source_patches = sess.run(normalize(tf.concat(list(map(lambda x: get_patch_at(x, source_image), source_keypoints[start:end])),0)))
-            target_patches = sess.run(normalize(tf.concat(list(map(lambda x: get_patch_at(x, target_image), target_keypoints[start:end])),0)))
+            #source_patches = sess.run(normalize(tf.concat(list(map(lambda x: get_patch_at(x, source_image), source_keypoints[start:end])),0)))
+            #target_patches = sess.run(normalize(tf.concat(list(map(lambda x: get_patch_at(x, target_image), target_keypoints[start:end])),0)))
 
-            source_descriptors_eval.extend(sess.run(descriptors, feed_dict={patches_placeholder : source_patches}))
-            target_descriptors_eval.extend(sess.run(descriptors, feed_dict={patches_placeholder : target_patches}))
+            #source_coords = tf.convert_to_tensor(np.array([list(key_point.pt) for key_point in source_keypoints]))
+            source_coords_np = np.array([list(key_point.pt) for key_point in source_keypoints[start:end]])
+            target_coords_np = np.array([list(key_point.pt) for key_point in target_keypoints[start:end]])
+
+            source_descriptors_eval.extend(sess.run(descriptors, feed_dict={patches_placeholder : np.squeeze(sess.run(source_patches, feed_dict={coords: source_coords_np}))}))
+            target_descriptors_eval.extend(sess.run(descriptors, feed_dict={patches_placeholder : np.squeeze(sess.run(target_patches, feed_dict={coords: target_coords_np}))}))
 
             #source_descriptors_eval.extend(sess.run(source_descriptors, feed_dict={source_patches_placeholder : source_patches}))
             #target_descriptors_eval.extend(sess.run(target_descriptors, feed_dict={target_patches_placeholder : target_patches}))
@@ -278,14 +301,9 @@ def main(argv):
             metric = centroid_distance
         else:
             metric = sym_kl_div
-
-        # Computation of distance metric
-        tf_src_descs = tf.convert_to_tensor(np.array(source_descriptors_eval))
-        tf_trgt_descs = tf.convert_to_tensor(np.array(target_descriptors_eval))
-        tf_dist_op = sym_kl_div_tf(tf_src_descs, tf_trgt_descs)
         
-        distances = sess.run(tf_dist_op)
-        indices = np.argmin(distances,1)
+        distances = sess.run(tf_dist_op, feed_dict={tf_src_descs: np.array(source_descriptors_eval), tf_trgt_descs: np.array(target_descriptors_eval)})
+        indices = np.expand_dims(np.argmin(distances,1),1)
         
 
         #knn_source = sklearn.neighbors.NearestNeighbors(n_neighbors=5, radius=1.0, algorithm='ball_tree', leaf_size=args.leaf_size, metric=metric)
