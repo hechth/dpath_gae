@@ -150,8 +150,8 @@ def main(argv):
         source_keypoints, source_descriptors_cv = orb.detectAndCompute(im_source, None)
         target_keypoints, target_descriptors_cv = orb.detectAndCompute(im_target, None)
 
-        source_keypoints.sort(key = lambda x: x.response, reverse=False)
-        target_keypoints.sort(key = lambda x: x.response, reverse=False)
+        #source_keypoints.sort(key = lambda x: x.response, reverse=False)
+        #target_keypoints.sort(key = lambda x: x.response, reverse=False)
 
         
         def remove_overlapping(x, keypoints):            
@@ -169,14 +169,14 @@ def main(argv):
                 i += 1
             return keypoints
         
-        source_keypoints = filter_keypoints(source_keypoints)
-        target_keypoints = filter_keypoints(target_keypoints)
+        #source_keypoints = filter_keypoints(source_keypoints)
+        #target_keypoints = filter_keypoints(target_keypoints)
 
         source_keypoints.sort(key = lambda x: x.response, reverse=True)
         target_keypoints.sort(key = lambda x: x.response, reverse=True)
 
-        all_source_keypoints = source_keypoints[:args.num_keypoints]
-        all_target_keypoints = target_keypoints[:args.num_keypoints]
+        source_keypoints = source_keypoints[:args.num_keypoints]
+        target_keypoints = target_keypoints[:args.num_keypoints]
 
         source_descriptors_eval = []
         target_descriptors_eval = []
@@ -188,17 +188,22 @@ def main(argv):
         #source_patches = normalize(tf.concat(list(map(lambda x: get_patch_at(x, source_image), source_keypoints)),0))
         #target_patches = normalize(tf.concat(list(map(lambda x: get_patch_at(x, target_image), target_keypoints)),0))
 
-        source_patches_placeholder = tf.placeholder(tf.float32,shape=[1000, args.patch_size, args.patch_size, 3])
-        target_patches_placeholder = tf.placeholder(tf.float32,shape=[1000, args.patch_size, args.patch_size, 3])
+        patches_placeholder = tf.placeholder(tf.float32,shape=[1000, args.patch_size, args.patch_size, 3])
+        #source_patches_placeholder = tf.placeholder(tf.float32,shape=[1000, args.patch_size, args.patch_size, 3])
+        #target_patches_placeholder = tf.placeholder(tf.float32,shape=[1000, args.patch_size, args.patch_size, 3])
 
-        source_cov, source_mean  = tf.contrib.graph_editor.graph_replace([sess.graph.get_tensor_by_name('imported/z_covariance_lower_tri/MatrixBandPart:0'),sess.graph.get_tensor_by_name('imported/z_mean/BiasAdd:0')] ,{ sess.graph.get_tensor_by_name('imported/patch:0'): source_patches_placeholder })
-        target_cov, target_mean = tf.contrib.graph_editor.graph_replace([sess.graph.get_tensor_by_name('imported/z_covariance_lower_tri/MatrixBandPart:0'),sess.graph.get_tensor_by_name('imported/z_mean/BiasAdd:0')] ,{ sess.graph.get_tensor_by_name('imported/patch:0'): target_patches_placeholder })
+        tf_cov, tf_mean = tf.contrib.graph_editor.graph_replace([sess.graph.get_tensor_by_name('imported/z_covariance_lower_tri/MatrixBandPart:0'),sess.graph.get_tensor_by_name('imported/z_mean/BiasAdd:0')] ,{ sess.graph.get_tensor_by_name('imported/patch:0'): patches_placeholder })
+        #source_cov, source_mean  = tf.contrib.graph_editor.graph_replace([sess.graph.get_tensor_by_name('imported/z_covariance_lower_tri/MatrixBandPart:0'),sess.graph.get_tensor_by_name('imported/z_mean/BiasAdd:0')] ,{ sess.graph.get_tensor_by_name('imported/patch:0'): source_patches_placeholder })
+        #target_cov, target_mean = tf.contrib.graph_editor.graph_replace([sess.graph.get_tensor_by_name('imported/z_covariance_lower_tri/MatrixBandPart:0'),sess.graph.get_tensor_by_name('imported/z_mean/BiasAdd:0')] ,{ sess.graph.get_tensor_by_name('imported/patch:0'): target_patches_placeholder })
         
-        batch, latent_code_size = target_mean.get_shape().as_list()
+        batch, latent_code_size = tf_mean.get_shape().as_list()
+
+        #batch, latent_code_size = target_mean.get_shape().as_list()
         structure_code_size = latent_code_size - args.stain_code_size
 
-        source_descriptors = tf.concat([source_mean[:,args.stain_code_size:], tf.layers.flatten(source_cov[:,args.stain_code_size:,args.stain_code_size:])], -1)
-        target_descriptors = tf.concat([target_mean[:,args.stain_code_size:], tf.layers.flatten(target_cov[:,args.stain_code_size:,args.stain_code_size:])], -1)
+        descriptors = tf.concat([tf_mean[:,args.stain_code_size:], tf.layers.flatten(tf_cov[:,args.stain_code_size:,args.stain_code_size:])], -1)
+        #source_descriptors = tf.concat([source_mean[:,args.stain_code_size:], tf.layers.flatten(source_cov[:,args.stain_code_size:,args.stain_code_size:])], -1)
+        #target_descriptors = tf.concat([target_mean[:,args.stain_code_size:], tf.layers.flatten(target_cov[:,args.stain_code_size:,args.stain_code_size:])], -1)
 
 
         def multi_kl_div(X,Y):
@@ -225,13 +230,13 @@ def main(argv):
             determinant_term = tf.log(tf.linalg.det(Y_cov) / tf.linalg.det(X_cov))
 
             value = 0.5 * (trace_term + middle_term - structure_code_size + determinant_term)
-            return np.squeeze(value)
+            return tf.squeeze(value)
 
         def sym_kl_div(X,Y):
             return multi_kl_div(X,Y) + multi_kl_div(Y,X)
 
         def sym_kl_div_tf(X,Y):
-            return tf.squeeze(multi_kl_div_tf(X,Y) + multi_kl_div_tf(Y,X))
+            return multi_kl_div_tf(X,Y) + multi_kl_div_tf(Y,X)
 
         def sqhd(X,Y):
             return multivariate_squared_hellinger_distance(X,Y,structure_code_size)
@@ -254,9 +259,12 @@ def main(argv):
             
             source_patches = sess.run(normalize(tf.concat(list(map(lambda x: get_patch_at(x, source_image), source_keypoints[start:end])),0)))
             target_patches = sess.run(normalize(tf.concat(list(map(lambda x: get_patch_at(x, target_image), target_keypoints[start:end])),0)))
-            
-            source_descriptors_eval.extend(sess.run(source_descriptors, feed_dict={source_patches_placeholder : source_patches}))
-            target_descriptors_eval.extend(sess.run(target_descriptors, feed_dict={target_patches_placeholder : target_patches}))
+
+            source_descriptors_eval.extend(sess.run(descriptors, feed_dict={patches_placeholder : source_patches}))
+            target_descriptors_eval.extend(sess.run(descriptors, feed_dict={patches_placeholder : target_patches}))
+
+            #source_descriptors_eval.extend(sess.run(source_descriptors, feed_dict={source_patches_placeholder : source_patches}))
+            #target_descriptors_eval.extend(sess.run(target_descriptors, feed_dict={target_patches_placeholder : target_patches}))
         
 
         #matches = match_descriptors(source_descriptors, target_descriptors, metric=lambda x,y: sym_kl_div(x,y), cross_check=True)
