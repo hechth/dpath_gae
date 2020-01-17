@@ -47,21 +47,13 @@ def main(argv):
         help='Optional: Size of the stain code to use, which is skipped for similarity estimation')
     parser.add_argument('--rotate', type=float, dest='angle', default=0,
         help='Optional: rotation angle to rotate target image')
+    parser.add_argument('--subsampling_factor', type=int, dest='subsampling_factor', default=1, help='Factor to subsample source and target image.')
     args = parser.parse_args()
 
     mean = np.load(args.mean)
     variance = np.load(args.variance)
     stddev = [np.math.sqrt(x) for x in variance]
 
-    heatmap_height = args.target_image_size[0] - (args.patch_size - 1)
-    heatmap_width = args.target_image_size[1] - (args.patch_size - 1)
-
-        
-    # Compute byte size as: width*height*channels*sizeof(float32)
-    patch_size_in_byte = args.patch_size**2 * 3 * 4
-    max_patches = int(max_patch_buffer_size / patch_size_in_byte)
-    max_num_rows = int(max_patches / heatmap_width)
-    max_chunk_size = int(max_buffer_size_in_byte / patch_size_in_byte)
 
 
 
@@ -80,7 +72,8 @@ def main(argv):
     with tf.Session(graph=tf.get_default_graph()).as_default() as sess:
 
         # Load image and extract patch from it and create distribution.
-        source_image = ctfi.load(args.source_filename,height=args.source_image_size[0], width=args.source_image_size[1])
+        source_image = ctfi.subsample(ctfi.load(args.source_filename,height=args.source_image_size[0], width=args.source_image_size[1]),args.subsampling_factor)
+        args.source_image_size = list(map(lambda x: int(x / args.subsampling_factor), args.source_image_size))
         patch = normalize(tf.expand_dims(tf.image.crop_to_bounding_box(source_image,args.offsets[0], args.offsets[1], args.patch_size, args.patch_size),0))        
         patch_cov, patch_mean = tf.contrib.graph_editor.graph_replace([sess.graph.get_tensor_by_name('imported/z_covariance_lower_tri/MatrixBandPart:0'),sess.graph.get_tensor_by_name('imported/z_mean/BiasAdd:0')] ,{ sess.graph.get_tensor_by_name('imported/patch:0'): patch })
         patch_distribution = tf.contrib.distributions.MultivariateNormalTriL(loc=patch_mean[:,args.stain_code_size:], scale_tril=patch_cov[:,args.stain_code_size:,args.stain_code_size:])
@@ -88,8 +81,20 @@ def main(argv):
         sim_vals = []
 
         #Load image for which to create the heatmap
-        target_image = ctfi.load(args.target_filename,height=args.target_image_size[0], width=args.target_image_size[1])
+        target_image = ctfi.subsample(ctfi.load(args.target_filename,height=args.target_image_size[0], width=args.target_image_size[1]),args.subsampling_factor)
         target_image = tf.contrib.image.rotate(target_image,np.radians(args.angle))
+        args.target_image_size = list(map(lambda x: int(x / args.subsampling_factor), args.target_image_size))
+
+
+        heatmap_height = args.target_image_size[0] - (args.patch_size - 1)
+        heatmap_width = args.target_image_size[1] - (args.patch_size - 1)
+
+        
+        # Compute byte size as: width*height*channels*sizeof(float32)
+        patch_size_in_byte = args.patch_size**2 * 3 * 4
+        max_patches = int(max_patch_buffer_size / patch_size_in_byte)
+        max_num_rows = int(max_patches / heatmap_width)
+        max_chunk_size = int(max_buffer_size_in_byte / patch_size_in_byte)
 
         #Iteration over image regions that we can load
         num_iterations = int(args.target_image_size[0] / max_num_rows) + 1
@@ -103,6 +108,8 @@ def main(argv):
         for i in range(num_iterations):
             processed_rows = i * max_num_rows
             rows_to_load = min(max_num_rows + (args.patch_size - 1), args.target_image_size[0] - processed_rows)
+            if rows_to_load < args.patch_size:
+                break
 
             # Extract region for which we can compute patches        
             target_image_region = tf.image.crop_to_bounding_box(target_image, processed_rows, 0, rows_to_load, args.target_image_size[1])
@@ -151,7 +158,7 @@ def main(argv):
         sess.run(tf.local_variables_initializer())
         saver.restore(sess, latest_checkpoint)
 
-        for i in range(num_iterations):
+        for i in range(len(all_chunks)):
             for chunk in all_chunks[i]:
                 #chunk_vals = sess.run(all_similarities[i], feed_dict={chunk_tensors[i]: sess.run(chunk)})
                 sim_vals.extend(sess.run(all_similarities[i], feed_dict={chunk_tensors[i]: sess.run(chunk)}))
