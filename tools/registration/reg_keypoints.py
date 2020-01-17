@@ -151,8 +151,8 @@ def main(argv):
         source_keypoints, source_descriptors_cv = orb.detectAndCompute(im_source, None)
         target_keypoints, target_descriptors_cv = orb.detectAndCompute(im_target, None)
 
-        source_keypoints.sort(key = lambda x: x.response, reverse=False)
-        target_keypoints.sort(key = lambda x: x.response, reverse=False)
+        #source_keypoints.sort(key = lambda x: x.response, reverse=False)
+        #target_keypoints.sort(key = lambda x: x.response, reverse=False)
 
         
         def remove_overlapping(x, keypoints):            
@@ -170,8 +170,8 @@ def main(argv):
                 i += 1
             return keypoints
         
-        source_keypoints = filter_keypoints(source_keypoints)
-        target_keypoints = filter_keypoints(target_keypoints)
+        #source_keypoints = filter_keypoints(source_keypoints)
+        #target_keypoints = filter_keypoints(target_keypoints)
 
         source_keypoints.sort(key = lambda x: x.response, reverse=True)
         target_keypoints.sort(key = lambda x: x.response, reverse=True)
@@ -193,7 +193,7 @@ def main(argv):
         #source_patches_placeholder = tf.placeholder(tf.float32,shape=[1000, args.patch_size, args.patch_size, 3])
         #target_patches_placeholder = tf.placeholder(tf.float32,shape=[1000, args.patch_size, args.patch_size, 3])
 
-        tf_cov, tf_mean = tf.contrib.graph_editor.graph_replace([sess.graph.get_tensor_by_name('imported/z_covariance_lower_tri/MatrixBandPart:0'),sess.graph.get_tensor_by_name('imported/z_mean/BiasAdd:0')] ,{ sess.graph.get_tensor_by_name('imported/patch:0'): patches_placeholder })
+        tf_cov, tf_mean = tf.contrib.graph_editor.graph_replace([sess.graph.get_tensor_by_name('imported/z_log_sigma_sq/BiasAdd:0'),sess.graph.get_tensor_by_name('imported/z_mean/BiasAdd:0')] ,{ sess.graph.get_tensor_by_name('imported/patch:0'): patches_placeholder })
         #source_cov, source_mean  = tf.contrib.graph_editor.graph_replace([sess.graph.get_tensor_by_name('imported/z_covariance_lower_tri/MatrixBandPart:0'),sess.graph.get_tensor_by_name('imported/z_mean/BiasAdd:0')] ,{ sess.graph.get_tensor_by_name('imported/patch:0'): source_patches_placeholder })
         #target_cov, target_mean = tf.contrib.graph_editor.graph_replace([sess.graph.get_tensor_by_name('imported/z_covariance_lower_tri/MatrixBandPart:0'),sess.graph.get_tensor_by_name('imported/z_mean/BiasAdd:0')] ,{ sess.graph.get_tensor_by_name('imported/patch:0'): target_patches_placeholder })
         
@@ -202,7 +202,7 @@ def main(argv):
         #batch, latent_code_size = target_mean.get_shape().as_list()
         structure_code_size = latent_code_size - args.stain_code_size
 
-        descriptors = tf.concat([tf_mean[:,args.stain_code_size:], tf.layers.flatten(tf_cov[:,args.stain_code_size:,args.stain_code_size:])], -1)
+        descriptors = tf.concat([tf_mean[:,args.stain_code_size:], tf.layers.flatten(tf_cov[:,args.stain_code_size:])], -1)
         #source_descriptors = tf.concat([source_mean[:,args.stain_code_size:], tf.layers.flatten(source_cov[:,args.stain_code_size:,args.stain_code_size:])], -1)
         #target_descriptors = tf.concat([target_mean[:,args.stain_code_size:], tf.layers.flatten(target_cov[:,args.stain_code_size:,args.stain_code_size:])], -1)
 
@@ -258,8 +258,6 @@ def main(argv):
 
         # Computation of distance metric
         descriptor_length = descriptors.get_shape().as_list()[1]
-        tf_src_descs = tf.placeholder(tf.float32,shape=[args.num_keypoints, descriptor_length])
-        tf_trgt_descs = tf.placeholder(tf.float32,shape=[args.num_keypoints, descriptor_length])
 
         def cdist_tf(X,Y):
             X_mean = X[:,args.stain_code_size:]
@@ -268,7 +266,35 @@ def main(argv):
             diff_means_einsum = tf.sqrt(tf.einsum('ij,ij->i',X_mean,X_mean)[:,None] + tf.einsum('ij,ij->i',Y_mean,Y_mean) - 2 * tf.matmul(X_mean, Y_mean, transpose_b=True))
             return diff_means_einsum
 
-        tf_dist_op = cdist_tf(tf_src_descs, tf_trgt_descs)
+        def fast_symmetric_kl_div(X_mean, X_cov_diag, Y_mean, Y_cov_diag):
+            def diag_inverse(A):
+                return tf.ones_like(A) / A
+
+            Y_cov_diag_inv = diag_inverse(Y_cov_diag)
+            X_cov_diag_inv = diag_inverse(X_cov_diag)
+
+            k = X_mean.get_shape().as_list()[1]
+
+            trace_term_forward = tf.matmul(Y_cov_diag_inv, X_cov_diag, transpose_b=True)
+            trace_term_backward = tf.transpose(tf.matmul(X_cov_diag_inv, Y_cov_diag, transpose_b=True))
+            trace_term = trace_term_forward + trace_term_backward
+
+            pairwise_mean_diff = tf.square(tf.expand_dims(Y_mean, 1) - tf.expand_dims(X_mean, 0))
+            pairwise_cov_sum = tf.transpose(tf.expand_dims(X_cov_diag_inv, 1) + tf.expand_dims(Y_cov_diag_inv, 0),perm=[1,0,2])
+
+            middle_term_einsum = tf.einsum('ijk,ijk->ij', pairwise_mean_diff, pairwise_cov_sum)
+            kl_div = 0.5 * (trace_term + middle_term_einsum) - k
+            return kl_div
+
+        def dist_kl(X,Y):
+            X_mean = X[:,0:structure_code_size]
+            X_cov = tf.sqrt(tf.exp(X[:, structure_code_size:]))
+            Y_mean = Y[:,0:structure_code_size]
+            Y_cov = tf.sqrt(tf.exp(Y[:, structure_code_size:]))
+            
+            return fast_symmetric_kl_div(X_mean, X_cov, Y_mean, Y_cov)
+
+        #tf_dist_op = cdist_tf(tf_src_descs, tf_trgt_descs)
 
         saver.restore(sess,latest_checkpoint)
 
@@ -289,6 +315,14 @@ def main(argv):
             #source_descriptors_eval.extend(sess.run(source_descriptors, feed_dict={source_patches_placeholder : source_patches}))
             #target_descriptors_eval.extend(sess.run(target_descriptors, feed_dict={target_patches_placeholder : target_patches}))
         
+        #sess.close()
+    
+    #with tf.Session(graph=tf.get_default_graph()).as_default() as sess:
+        tf_src_descs = tf.placeholder(tf.float32,shape=[args.num_keypoints, descriptor_length])
+        tf_trgt_descs = tf.placeholder(tf.float32,shape=[args.num_keypoints, descriptor_length])
+        dist_op = dist_kl(tf_src_descs, tf_trgt_descs)
+
+        #sess.run(tf.global_variables_initializer())
 
         #matches = match_descriptors(source_descriptors, target_descriptors, metric=lambda x,y: sym_kl_div(x,y), cross_check=True)
         if args.method == 'SKLD':
@@ -301,8 +335,9 @@ def main(argv):
             metric = centroid_distance
         else:
             metric = sym_kl_div
-        
-        distances = sess.run(tf_dist_op, feed_dict={tf_src_descs: np.array(source_descriptors_eval), tf_trgt_descs: np.array(target_descriptors_eval)})
+
+
+        distances = sess.run(dist_op, feed_dict={tf_src_descs: np.array(source_descriptors_eval), tf_trgt_descs: np.array(target_descriptors_eval)})
         indices = np.expand_dims(np.argmin(distances,1),1)
         
 
