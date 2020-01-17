@@ -269,10 +269,13 @@ def _parse_sampler(input_shape, config):
     sample_shape = mean.compute_output_shape(input_shape)
 
     def _sample(mean, log_sigma_sq):
-        eps_shape = tf.shape(mean)
-        eps = tf.random_normal( eps_shape, 0, 1, dtype=tf.float32 )
-        sample = tf.add(mean, tf.multiply(tf.sqrt(tf.exp(log_sigma_sq)), eps), name=name)
-        return mean, log_sigma_sq, sample
+        #eps_shape = tf.shape(mean)
+        #eps = tf.random_normal( eps_shape, 0, 1, dtype=tf.float32 )
+        scale = tf.sqrt(tf.exp(log_sigma_sq))
+        #sample = tf.add(mean, tf.multiply(tf.sqrt(tf.exp(log_sigma_sq)), eps), name=name)
+        dist = tf.contrib.distributions.MultivariateNormalDiag(mean, scale)
+        sample = dist.sample()
+        return dist, sample
 
     layer = [mean, log_sigma_sq]
     variables = [mean.variables, log_sigma_sq.variables]
