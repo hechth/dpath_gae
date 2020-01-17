@@ -32,22 +32,12 @@ def fast_symmetric_kl_div(X_mean, X_cov_diag, Y_mean, Y_cov_diag):
     trace_term = trace_term_forward + trace_term_backward
 
     pairwise_mean_diff = tf.square(tf.expand_dims(Y_mean, 1) - tf.expand_dims(X_mean, 0))
-
     pairwise_cov_sum = tf.transpose(tf.expand_dims(X_cov_diag_inv, 1) + tf.expand_dims(Y_cov_diag_inv, 0),perm=[1,0,2])
 
     middle_term_einsum = tf.einsum('ijk,ijk->ij', pairwise_mean_diff, pairwise_cov_sum)
-    #middle_term_forward = tf.einsum('ijk,ik->ij', pairwise_mean_diff,Y_cov_diag_inv)
-    #middle_term_backward = tf.einsum('ijk,jk->ij', pairwise_mean_diff,X_cov_diag_inv)
-    #middle_term = middle_term_forward + middle_term_backward
     kl_div = 0.5 * (trace_term + middle_term_einsum) - k
     return kl_div
-
-def fast_kl_div(X_mean, X_cov_diag, Y_mean, Y_cov_diag):
-    Y_cov_diag_inv = diag_inverse(Y_cov_diag)
-    k = X_mean.get_shape().as_list()[1]
-    trace_term = tf.matmul(Y_cov_diag_inv, X_cov_diag, transpose_b=True)
-    pairwise_mean_diff = tf.transpose(tf.square(tf.expand_dims(Y_mean, 1) - tf.expand_dims(X_mean, 0)),perm=[1,0,2])
-    
+   
 
 def main(argv):
 
