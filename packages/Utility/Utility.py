@@ -1,6 +1,7 @@
 import glob, os
 import stat
 import re
+import math
 from sklearn.model_selection import train_test_split
 import importlib, inspect
 from functools import reduce
@@ -137,3 +138,11 @@ def concatenate_functions(funcs):
     """
     return lambda x: pipeline(x, funcs)
 
+def get_divisors(n):
+    """ Function to compute the divisors of n. """
+    divisors = []       
+    # List to store half of the divisors 
+    for i in range(1, int(math.sqrt(n) + 1)) :          
+        if (n % i == 0) :            
+            divisors.append(i)
+    return divisors

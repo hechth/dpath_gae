@@ -13,3 +13,5 @@ from .Utility import match_regex
 from .Utility import get_function
 from .Utility import pipeline
 from .Utility import concatenate_functions
+
+from .Utility import get_divisors
