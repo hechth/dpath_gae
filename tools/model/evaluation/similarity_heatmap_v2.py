@@ -36,9 +36,9 @@ def fast_symmetric_kl_div(X_mean, X_cov_diag, Y_mean, Y_cov_diag):
 
 def dist_kl(X,Y, structure_code_size):
     X_mean = X[:,0:structure_code_size]
-    X_cov = tf.sqrt(tf.exp(X[:, structure_code_size:]))
+    X_cov = tf.exp(X[:, structure_code_size:])
     Y_mean = Y[:,0:structure_code_size]
-    Y_cov = tf.sqrt(tf.exp(Y[:, structure_code_size:]))            
+    Y_cov = tf.exp(Y[:, structure_code_size:])
     return fast_symmetric_kl_div(X_mean, X_cov, Y_mean, Y_cov)
 
 def create_chunks(lst, n):
@@ -164,7 +164,8 @@ def main(argv):
             image_patches_cov, image_patches_mean = tf.contrib.graph_editor.graph_replace([sess.graph.get_tensor_by_name('imported/z_log_sigma_sq/BiasAdd:0'),sess.graph.get_tensor_by_name('imported/z_mean/BiasAdd:0')] ,{ sess.graph.get_tensor_by_name('imported/patch:0'): chunk_tensor })
             image_patches_descriptors = tf.concat([image_patches_mean[:,args.stain_code_size:], tf.layers.flatten(image_patches_cov[:,args.stain_code_size:])], -1)
         
-            similarities = tf.squeeze(dist_kl(patch_descriptor, image_patches_descriptors, structure_code_size))
+            distances = dist_kl(patch_descriptor, image_patches_descriptors, structure_code_size)
+            similarities = tf.squeeze(distances)
 
             all_similarities.append(similarities)
 
@@ -221,6 +222,7 @@ def main(argv):
         plt.show()
         sess.close()
     print("Done!")
+    return 0
                 
 
 

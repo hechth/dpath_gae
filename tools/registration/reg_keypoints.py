@@ -140,6 +140,7 @@ def main(argv):
     saver = tf.train.import_meta_graph(latest_checkpoint + '.meta', import_scope='imported')
 
     with tf.Session(graph=tf.get_default_graph()).as_default() as sess:
+        #saver.restore(sess,latest_checkpoint)
 
         # Load image and extract patch from it and create distribution.
         source_image = ctfi.subsample(tf.expand_dims(ctfi.load(args.source_filename,height=args.source_image_size[0], width=args.source_image_size[1]),0),args.subsampling_factor)
@@ -288,15 +289,16 @@ def main(argv):
 
         def dist_kl(X,Y):
             X_mean = X[:,0:structure_code_size]
-            X_cov = tf.sqrt(tf.exp(X[:, structure_code_size:]))
+            X_cov = tf.exp(X[:, structure_code_size:])
             Y_mean = Y[:,0:structure_code_size]
-            Y_cov = tf.sqrt(tf.exp(Y[:, structure_code_size:]))
+            Y_cov = tf.exp(Y[:, structure_code_size:])
             
             return fast_symmetric_kl_div(X_mean, X_cov, Y_mean, Y_cov)
 
         #tf_dist_op = cdist_tf(tf_src_descs, tf_trgt_descs)
-
-        saver.restore(sess,latest_checkpoint)
+        sess.run(tf.global_variables_initializer())
+        sess.run(tf.local_variables_initializer())
+        saver.restore(sess, latest_checkpoint)
 
         for i in range(int(args.num_keypoints / 1000)):
             start = i * 1000
@@ -338,7 +340,7 @@ def main(argv):
 
 
         distances = sess.run(dist_op, feed_dict={tf_src_descs: np.array(source_descriptors_eval), tf_trgt_descs: np.array(target_descriptors_eval)})
-        indices = np.expand_dims(np.argmin(distances,1),1)
+        indices = np.expand_dims(np.argmin(distances,axis=0),1)
         
 
         #knn_source = sklearn.neighbors.NearestNeighbors(n_neighbors=5, radius=1.0, algorithm='ball_tree', leaf_size=args.leaf_size, metric=metric)
@@ -364,6 +366,7 @@ def main(argv):
         for match in matches:
             all_cv_matches.extend(create_cv_matches(match))
 
+        sess.close()
         #cv_matches = list(map(lambda x: create_dmatch(x[0], x[1], x[2]),matches))  
         # Draw top matches
         imMatches = cv2.drawMatches(im_source, source_keypoints, im_target, target_keypoints, all_cv_matches, None)
@@ -373,6 +376,7 @@ def main(argv):
         plt.show()
 
         print("Detected keypoints!")
+    return 0
 
 
 if __name__ == "__main__":

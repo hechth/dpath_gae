@@ -75,9 +75,12 @@ def main(argv):
         source_image = ctfi.subsample(ctfi.load(args.source_filename,height=args.source_image_size[0], width=args.source_image_size[1]),args.subsampling_factor)
         args.source_image_size = list(map(lambda x: int(x / args.subsampling_factor), args.source_image_size))
         patch = normalize(tf.expand_dims(tf.image.crop_to_bounding_box(source_image,args.offsets[0], args.offsets[1], args.patch_size, args.patch_size),0))        
-        patch_cov, patch_mean = tf.contrib.graph_editor.graph_replace([sess.graph.get_tensor_by_name('imported/z_covariance_lower_tri/MatrixBandPart:0'),sess.graph.get_tensor_by_name('imported/z_mean/BiasAdd:0')] ,{ sess.graph.get_tensor_by_name('imported/patch:0'): patch })
-        patch_distribution = tf.contrib.distributions.MultivariateNormalTriL(loc=patch_mean[:,args.stain_code_size:], scale_tril=patch_cov[:,args.stain_code_size:,args.stain_code_size:])
+        #patch_cov, patch_mean = tf.contrib.graph_editor.graph_replace([sess.graph.get_tensor_by_name('imported/z_covariance_lower_tri/MatrixBandPart:0'),sess.graph.get_tensor_by_name('imported/z_mean/BiasAdd:0')] ,{ sess.graph.get_tensor_by_name('imported/patch:0'): patch })
+        #patch_distribution = tf.contrib.distributions.MultivariateNormalTriL(loc=patch_mean[:,args.stain_code_size:], scale_tril=patch_cov[:,args.stain_code_size:,args.stain_code_size:])
         
+        patch_cov, patch_mean = tf.contrib.graph_editor.graph_replace([sess.graph.get_tensor_by_name('imported/z_log_sigma_sq/BiasAdd:0'),sess.graph.get_tensor_by_name('imported/z_mean/BiasAdd:0')] ,{ sess.graph.get_tensor_by_name('imported/patch:0'): patch })
+        patch_distribution = tf.contrib.distributions.MultivariateNormalDiag(patch_mean[:,args.stain_code_size:], tf.sqrt(tf.exp(patch_cov[:,args.stain_code_size:])))
+
         sim_vals = []
 
         #Load image for which to create the heatmap
@@ -138,9 +141,12 @@ def main(argv):
             chunk_tensor = tf.placeholder(tf.float32,shape=[chunk_sizes[i], args.patch_size, args.patch_size, 3], name='chunk_tensor_placeholder')
             chunk_tensors.append(chunk_tensor)
             
-            image_patches_cov, image_patches_mean = tf.contrib.graph_editor.graph_replace([sess.graph.get_tensor_by_name('imported/z_covariance_lower_tri/MatrixBandPart:0'),sess.graph.get_tensor_by_name('imported/z_mean/BiasAdd:0')] ,{ sess.graph.get_tensor_by_name('imported/patch:0'): chunk_tensor })
-            image_patches_distributions = tf.contrib.distributions.MultivariateNormalTriL(loc=image_patches_mean[:,args.stain_code_size:], scale_tril=image_patches_cov[:,args.stain_code_size:,args.stain_code_size:])
+            #image_patches_cov, image_patches_mean = tf.contrib.graph_editor.graph_replace([sess.graph.get_tensor_by_name('imported/z_covariance_lower_tri/MatrixBandPart:0'),sess.graph.get_tensor_by_name('imported/z_mean/BiasAdd:0')] ,{ sess.graph.get_tensor_by_name('imported/patch:0'): chunk_tensor })
+            #image_patches_distributions = tf.contrib.distributions.MultivariateNormalTriL(loc=image_patches_mean[:,args.stain_code_size:], scale_tril=image_patches_cov[:,args.stain_code_size:,args.stain_code_size:])
         
+            image_patches_cov, image_patches_mean = tf.contrib.graph_editor.graph_replace([sess.graph.get_tensor_by_name('imported/z_log_sigma_sq/BiasAdd:0'),sess.graph.get_tensor_by_name('imported/z_mean/BiasAdd:0')] ,{ sess.graph.get_tensor_by_name('imported/patch:0'): chunk_tensor })
+            image_patches_distributions = tf.contrib.distributions.MultivariateNormalDiag(image_patches_mean[:,args.stain_code_size:], tf.sqrt(tf.exp(image_patches_cov[:,args.stain_code_size:])))
+            
             if args.method == 'SKLD':
                 similarities = patch_distribution.kl_divergence(image_patches_distributions) + image_patches_distributions.kl_divergence(patch_distribution)
             elif args.method == 'BD':
