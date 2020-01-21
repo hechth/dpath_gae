@@ -53,12 +53,12 @@ def extract_patches(
     ksizes=None):
 
     """
-    Function which splits image of shape [width, height, 3] into patches with more convenient ordering than the built in tensorflow function
+    Function which splits image of shape [height, width, channels] into patches with more convenient ordering than the built in tensorflow function
     tf.image.extract_image_patches (https://www.tensorflow.org/versions/r1.12/api_docs/python/tf/image/extract_image_patches)
 
     Returns
     -------
-    patches: image patches of shape [num_patches, patch_size, patch_size, 3]
+    patches: image patches of shape [num_patches, patch_size, patch_size, channels]
     """
 
     # Set strides and ksizes if not passed as arguments
@@ -68,12 +68,11 @@ def extract_patches(
     if ksizes is None:
         ksizes=[1, patch_size, patch_size, 1]
     
-    # Split image into rgb channels
-    r,g,b = tf.split(image, 3, 2)       
-
+    height, width, channels = image.get_shape().as_list()
+    
     # Extract patches from the image using tensorflow function
     patches = tf.image.extract_image_patches(
-      [r,g,b],
+      tf.split(image, channels, axis=2),
       ksizes,
       strides,
       rates,
@@ -101,7 +100,7 @@ def extract_patches(
     # Reshape from [patches, pixels, channels] to [patches, rows, cols, channels]
     patches = tf.reshape(
       patches,
-      tf.stack([tf.reduce_prod(num_patches), patch_size, patch_size, 3])
+      tf.stack([tf.reduce_prod(num_patches), patch_size, patch_size, channels])
     )
 
     return patches

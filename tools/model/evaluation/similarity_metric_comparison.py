@@ -14,6 +14,9 @@ import packages.Tensorflow.Model as ctfm
 import packages.Tensorflow.Image as ctfi
 import packages.Utility as cutil
 
+max_buffer_size_in_byte = 64*64*4*3*1000
+max_patch_buffer_size = 2477273088
+
 def main(argv):
     parser = argparse.ArgumentParser(description='Compute codes and reconstructions for image.')
     parser.add_argument('export_dir',type=str,help='Path to saved model.')
@@ -21,9 +24,9 @@ def main(argv):
     parser.add_argument('variance', type=str, help='Path to npy file holding variance for normalization.')
     parser.add_argument('source_filename', type=str,help='Image file from which to extract patch.')
     parser.add_argument('source_image_size', type=int, nargs=2, help='Size of the input image, HW.')
-    parser.add_argument('patch_size', type=int, help='Size of image patch.')
     parser.add_argument('target_filename', type=str,help='Image file for which to create the heatmap.')
     parser.add_argument('target_image_size', type=int, nargs=2, help='Size of the input image for which to create heatmap, HW.')
+    parser.add_argument('patch_size', type=int, help='Size of image patch.')
     parser.add_argument('--method', dest='method', type=str, help='Method to use to measure similarity, one of KLD, SKLD, BD, HD, SQHD.')
     parser.add_argument('--stain_code_size', type=int, dest='stain_code_size', default=0,
         help='Optional: Size of the stain code to use, which is skipped for similarity estimation')
@@ -41,12 +44,15 @@ def main(argv):
         denormalized_image = ctfi.rescale(np.concatenate(channels, 2), 0.0, 1.0)
         return denormalized_image
 
-    def normalize(image, name=None):
-        channels = [tf.expand_dims((image[:,:,:,channel] - mean[channel]) / stddev[channel],-1) for channel in range(3)]
-        return tf.concat(channels, 3, name=name)
+    def normalize(image, name=None, num_channels=3):
+        channels = [tf.expand_dims((image[:,:,:,channel] - mean[channel]) / stddev[channel],-1) for channel in range(num_channels)]
+        return tf.concat(channels, num_channels)
 
     latest_checkpoint = tf.train.latest_checkpoint(args.export_dir)   
     saver = tf.train.import_meta_graph(latest_checkpoint + '.meta', import_scope='imported')
+
+    config = tf.ConfigProto()
+    config.gpu_options.allow_growth = True
 
     # Load image and extract patch from it and create distribution.
     source_image = ctfi.subsample(ctfi.load(args.source_filename,height=args.source_image_size[0], width=args.source_image_size[1]),args.subsampling_factor)
@@ -56,33 +62,39 @@ def main(argv):
     target_image = ctfi.subsample(ctfi.load(args.target_filename,height=args.target_image_size[0], width=args.target_image_size[1]),args.subsampling_factor)
     args.target_image_size = list(map(lambda x: int(x / args.subsampling_factor), args.target_image_size))
 
-    all_source_patches = normalize(ctfi.extract_patches(source_image, args.patch_size, strides=[1,1,1,1], padding='SAME'))
-    all_target_patches = normalize(ctfi.extract_patches(target_image, args.patch_size, strides=[1,1,1,1], padding='SAME'))
+    heatmap_size = list(map(lambda v: max(v[0],v[1]), zip(args.source_image_size, args.target_image_size)))
 
-    num_patches = all_source_patches.get_shape().as_list()[0]
+    source_image = tf.image.resize_image_with_crop_or_pad(source_image, heatmap_size[0], heatmap_size[1])
+    target_image = tf.image.resize_image_with_crop_or_pad(target_image, heatmap_size[0], heatmap_size[1])
+
+    num_patches = np.prod(heatmap_size,axis=0)
 
     possible_splits = cutil.get_divisors(num_patches)
     num_splits = possible_splits.pop(0)
 
-    while num_patches / num_splits > 1000 and len(possible_splits) > 0:
+    while num_patches / num_splits > 500 and len(possible_splits) > 0:
         num_splits = possible_splits.pop(0)
 
+    split_size = int(num_patches / num_splits)
+  
+    all_source_patches = ctfi.extract_patches(source_image, args.patch_size, strides=[1,1,1,1], padding='SAME')
+    all_target_patches = ctfi.extract_patches(target_image, args.patch_size, strides=[1,1,1,1], padding='SAME')
 
     source_patches = tf.split(all_source_patches, num_splits)
     target_patches = tf.split(all_target_patches, num_splits)
 
     patches = zip(source_patches, target_patches)
 
-    source_patches_placeholder = tf.placeholder(tf.float32, shape=source_patches[0].get_shape())
-    target_patches_placeholder = tf.placeholder(tf.float32, shape=target_patches[0].get_shape())
+    source_patches_placeholder = tf.placeholder(tf.float32, shape=[num_patches / num_splits, args.patch_size, args.patch_size, 3])
+    target_patches_placeholder = tf.placeholder(tf.float32, shape=[num_patches / num_splits, args.patch_size, args.patch_size, 3])
 
     heatmap = []
     
-    with tf.Session(graph=tf.get_default_graph()).as_default() as sess:
-        source_patches_cov, source_patches_mean = tf.contrib.graph_editor.graph_replace([sess.graph.get_tensor_by_name('imported/z_log_sigma_sq/BiasAdd:0'),sess.graph.get_tensor_by_name('imported/z_mean/BiasAdd:0')] ,{ sess.graph.get_tensor_by_name('imported/patch:0'): source_patches_placeholder })
+    with tf.Session(graph=tf.get_default_graph(), config=config).as_default() as sess:
+        source_patches_cov, source_patches_mean = tf.contrib.graph_editor.graph_replace([sess.graph.get_tensor_by_name('imported/z_log_sigma_sq/BiasAdd:0'),sess.graph.get_tensor_by_name('imported/z_mean/BiasAdd:0')] ,{ sess.graph.get_tensor_by_name('imported/patch:0'): normalize(source_patches_placeholder) })
         source_patches_distribution = tf.contrib.distributions.MultivariateNormalDiag(source_patches_mean[:,args.stain_code_size:], tf.exp(source_patches_cov[:,args.stain_code_size:]))
         
-        target_patches_cov, target_patches_mean = tf.contrib.graph_editor.graph_replace([sess.graph.get_tensor_by_name('imported/z_log_sigma_sq/BiasAdd:0'),sess.graph.get_tensor_by_name('imported/z_mean/BiasAdd:0')] ,{ sess.graph.get_tensor_by_name('imported/patch:0'): target_patches_placeholder })
+        target_patches_cov, target_patches_mean = tf.contrib.graph_editor.graph_replace([sess.graph.get_tensor_by_name('imported/z_log_sigma_sq/BiasAdd:0'),sess.graph.get_tensor_by_name('imported/z_mean/BiasAdd:0')] ,{ sess.graph.get_tensor_by_name('imported/patch:0'): normalize(target_patches_placeholder) })
         target_patches_distribution = tf.contrib.distributions.MultivariateNormalDiag(target_patches_mean[:,args.stain_code_size:], tf.exp(target_patches_cov[:,args.stain_code_size:]))
 
         similarity = source_patches_distribution.kl_divergence(target_patches_distribution) + target_patches_distribution.kl_divergence(source_patches_distribution)
@@ -94,8 +106,21 @@ def main(argv):
         for source, target in patches:
             heatmap.extend(sess.run(similarity, feed_dict={source_patches_placeholder : sess.run(source), target_patches_placeholder: sess.run(target)}))
 
-        sim_heatmap = np.reshape(heatmap, args.source_image_size)
-        plt.imshow(sim_heatmap, cmap='plasma')
+        heatmap_sad = sess.run(tf.reduce_mean(tf.squared_difference(source_image, target_image), axis=2))
+
+        sim_heatmap = np.reshape(heatmap, heatmap_size)
+        
+        fig_images, ax_images = plt.subplots(1,2)
+        ax_images[0].imshow(sess.run(source_image))
+        ax_images[1].imshow(sess.run(target_image))
+
+        fig_similarities, ax_similarities = plt.subplots(1,2)
+        heatmap_skld_plot = ax_similarities[0].imshow(sim_heatmap, cmap='plasma')
+        heatmap_sad_plot = ax_similarities[1].imshow(heatmap_sad, cmap='plasma')
+
+        fig_similarities.colorbar(heatmap_skld_plot, ax=ax_similarities[0])
+        fig_similarities.colorbar(heatmap_sad_plot, ax=ax_similarities[1])
+
         plt.show()
 
         sess.close()

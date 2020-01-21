@@ -137,6 +137,7 @@ def main(argv):
         for i in range(num_iterations):
             processed_rows = i * max_num_rows
             rows_to_load = min(max_num_rows + (args.patch_size - 1), args.target_image_size[0] - processed_rows)
+            
             if rows_to_load < args.patch_size:
                 break
 
