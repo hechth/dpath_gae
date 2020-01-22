@@ -45,6 +45,19 @@ def init_session_and_get_op(export_dir, patch_shape):
 
     return lambda patch: sess.run([patch_mean,tf.matmul(patch_cov, patch_cov, transpose_b=True)],feed_dict={patch_placeholder : patch})
 
+def init_session_and_get_op_diagonal(export_dir, patch_shape):
+    latest_checkpoint = tf.train.latest_checkpoint(export_dir)   
+    saver = tf.train.import_meta_graph(latest_checkpoint + '.meta', import_scope='imported')
+    graph = tf.get_default_graph()
+    sess = tf.Session(graph=graph)
+
+    patch_placeholder = tf.placeholder(tf.float32,shape=patch_shape)
+
+    patch_cov, patch_mean = tf.contrib.graph_editor.graph_replace([sess.graph.get_tensor_by_name('imported/z_log_sigma_sq/BiasAdd:0'),sess.graph.get_tensor_by_name('imported/z_mean/BiasAdd:0')] ,{ sess.graph.get_tensor_by_name('imported/patch:0'): patch_placeholder })
+    saver.restore(sess,latest_checkpoint)
+
+    return lambda patch: sess.run([patch_mean, tf.exp(patch_cov)],feed_dict={patch_placeholder : patch})
+
 def multivariate_squared_hellinger_distance(X_mean, X_cov, Y_mean, Y_cov):
     """
     See https://en.wikipedia.org/wiki/Hellinger_distance for information on hellinger distance.

@@ -340,7 +340,7 @@ def main(argv):
 
 
         distances = sess.run(dist_op, feed_dict={tf_src_descs: np.array(source_descriptors_eval), tf_trgt_descs: np.array(target_descriptors_eval)})
-        indices = np.expand_dims(np.argmin(distances,axis=0),1)
+        indices = np.expand_dims(np.argmin(distances,axis=1),1)
         
 
         #knn_source = sklearn.neighbors.NearestNeighbors(n_neighbors=5, radius=1.0, algorithm='ball_tree', leaf_size=args.leaf_size, metric=metric)

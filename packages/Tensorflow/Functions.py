@@ -133,6 +133,6 @@ def fast_symmetric_kl_div(X_mean, X_cov_diag, Y_mean, Y_cov_diag):
 
     middle_term_einsum = tf.einsum('ijk,ijk->ij', pairwise_mean_diff, pairwise_cov_sum)
     kl_div = 0.5 * (trace_term + middle_term_einsum) - k
-    return kl_div
+    return tf.transpose(kl_div)
 
 
