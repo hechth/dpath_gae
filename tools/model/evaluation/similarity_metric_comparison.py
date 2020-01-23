@@ -52,7 +52,7 @@ def main(argv):
     saver = tf.train.import_meta_graph(latest_checkpoint + '.meta', import_scope='imported')
 
     config = tf.ConfigProto()
-    config.gpu_options.allow_growth = True
+    #config.gpu_options.allow_growth = True
 
     # Load image and extract patch from it and create distribution.
     source_image = ctfi.subsample(ctfi.load(args.source_filename,height=args.source_image_size[0], width=args.source_image_size[1]),args.subsampling_factor)
@@ -76,7 +76,10 @@ def main(argv):
         num_splits = possible_splits.pop(0)
 
     split_size = int(num_patches / num_splits)
-  
+
+    source_patches_placeholder = tf.placeholder(tf.float32, shape=[num_patches / num_splits, args.patch_size, args.patch_size, 3])
+    target_patches_placeholder = tf.placeholder(tf.float32, shape=[num_patches / num_splits, args.patch_size, args.patch_size, 3])
+      
     all_source_patches = ctfi.extract_patches(source_image, args.patch_size, strides=[1,1,1,1], padding='SAME')
     all_target_patches = ctfi.extract_patches(target_image, args.patch_size, strides=[1,1,1,1], padding='SAME')
 
@@ -85,8 +88,6 @@ def main(argv):
 
     patches = zip(source_patches, target_patches)
 
-    source_patches_placeholder = tf.placeholder(tf.float32, shape=[num_patches / num_splits, args.patch_size, args.patch_size, 3])
-    target_patches_placeholder = tf.placeholder(tf.float32, shape=[num_patches / num_splits, args.patch_size, args.patch_size, 3])
 
     heatmap = []
     

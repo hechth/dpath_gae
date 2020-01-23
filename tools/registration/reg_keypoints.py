@@ -267,33 +267,13 @@ def main(argv):
             diff_means_einsum = tf.sqrt(tf.einsum('ij,ij->i',X_mean,X_mean)[:,None] + tf.einsum('ij,ij->i',Y_mean,Y_mean) - 2 * tf.matmul(X_mean, Y_mean, transpose_b=True))
             return diff_means_einsum
 
-        def fast_symmetric_kl_div(X_mean, X_cov_diag, Y_mean, Y_cov_diag):
-            def diag_inverse(A):
-                return tf.ones_like(A) / A
-
-            Y_cov_diag_inv = diag_inverse(Y_cov_diag)
-            X_cov_diag_inv = diag_inverse(X_cov_diag)
-
-            k = X_mean.get_shape().as_list()[1]
-
-            trace_term_forward = tf.matmul(Y_cov_diag_inv, X_cov_diag, transpose_b=True)
-            trace_term_backward = tf.transpose(tf.matmul(X_cov_diag_inv, Y_cov_diag, transpose_b=True))
-            trace_term = trace_term_forward + trace_term_backward
-
-            pairwise_mean_diff = tf.square(tf.expand_dims(Y_mean, 1) - tf.expand_dims(X_mean, 0))
-            pairwise_cov_sum = tf.transpose(tf.expand_dims(X_cov_diag_inv, 1) + tf.expand_dims(Y_cov_diag_inv, 0),perm=[1,0,2])
-
-            middle_term_einsum = tf.einsum('ijk,ijk->ij', pairwise_mean_diff, pairwise_cov_sum)
-            kl_div = 0.5 * (trace_term + middle_term_einsum) - k
-            return kl_div
-
         def dist_kl(X,Y):
             X_mean = X[:,0:structure_code_size]
             X_cov = tf.exp(X[:, structure_code_size:])
             Y_mean = Y[:,0:structure_code_size]
             Y_cov = tf.exp(Y[:, structure_code_size:])
             
-            return fast_symmetric_kl_div(X_mean, X_cov, Y_mean, Y_cov)
+            return ctf.fast_symmetric_kl_div(X_mean, X_cov, Y_mean, Y_cov)
 
         #tf_dist_op = cdist_tf(tf_src_descs, tf_trgt_descs)
         sess.run(tf.global_variables_initializer())
@@ -341,12 +321,12 @@ def main(argv):
 
         distances = sess.run(dist_op, feed_dict={tf_src_descs: np.array(source_descriptors_eval), tf_trgt_descs: np.array(target_descriptors_eval)})
         indices = np.expand_dims(np.argmin(distances,axis=1),1)
-        
+        min_distances = [distances[i, indices[i]] for i in range(len(indices))]
 
         #knn_source = sklearn.neighbors.NearestNeighbors(n_neighbors=5, radius=1.0, algorithm='ball_tree', leaf_size=args.leaf_size, metric=metric)
         #knn_source.fit(target_descriptors_eval)
         #distances, indices = knn_source.kneighbors(source_descriptors_eval, n_neighbors=args.num_neighbours)
-        matches = list(zip(range(len(indices)), indices, distances))
+        matches = list(zip(range(len(indices)), indices, min_distances))
         # Sort matches by score
         
         matches.sort(key=lambda x: np.min(x[2]), reverse=False)

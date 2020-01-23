@@ -14,32 +14,12 @@ import packages.Tensorflow.Model as ctfm
 import packages.Tensorflow.Image as ctfi
 import packages.Utility as cutil
 
-def fast_symmetric_kl_div(X_mean, X_cov_diag, Y_mean, Y_cov_diag):
-    def diag_inverse(A):
-        return tf.ones_like(A) / A
-
-    Y_cov_diag_inv = diag_inverse(Y_cov_diag)
-    X_cov_diag_inv = diag_inverse(X_cov_diag)
-
-    k = X_mean.get_shape().as_list()[1]
-
-    trace_term_forward = tf.matmul(Y_cov_diag_inv, X_cov_diag, transpose_b=True)
-    trace_term_backward = tf.transpose(tf.matmul(X_cov_diag_inv, Y_cov_diag, transpose_b=True))
-    trace_term = trace_term_forward + trace_term_backward
-
-    pairwise_mean_diff = tf.square(tf.expand_dims(Y_mean, 1) - tf.expand_dims(X_mean, 0))
-    pairwise_cov_sum = tf.transpose(tf.expand_dims(X_cov_diag_inv, 1) + tf.expand_dims(Y_cov_diag_inv, 0),perm=[1,0,2])
-
-    middle_term_einsum = tf.einsum('ijk,ijk->ij', pairwise_mean_diff, pairwise_cov_sum)
-    kl_div = 0.5 * (trace_term + middle_term_einsum) - k
-    return kl_div
-
 def dist_kl(X,Y, structure_code_size):
     X_mean = X[:,0:structure_code_size]
     X_cov = tf.exp(X[:, structure_code_size:])
     Y_mean = Y[:,0:structure_code_size]
     Y_cov = tf.exp(Y[:, structure_code_size:])
-    return fast_symmetric_kl_div(X_mean, X_cov, Y_mean, Y_cov)
+    return ctf.fast_symmetric_kl_div(X_mean, X_cov, Y_mean, Y_cov)
 
 def create_chunks(lst, n):
     """Yield successive n-sized chunks from lst."""
