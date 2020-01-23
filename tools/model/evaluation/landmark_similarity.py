@@ -1,0 +1,101 @@
+import sys, argparse, os, math
+import git
+git_root = git.Repo('.', search_parent_directories=True).working_tree_dir
+sys.path.append(git_root)
+
+import numpy as np
+import matplotlib.pyplot as plt
+import tensorflow as tf
+import csv
+
+import packages.Tensorflow as ctf
+import packages.Tensorflow.Model as ctfm
+import packages.Tensorflow.Image as ctfi
+import packages.Utility as cutil
+
+max_buffer_size_in_byte = 64*64*4*3*1000
+max_patch_buffer_size = 2477273088
+
+def get_patch_at(keypoint, image, patch_size):
+    return tf.image.extract_glimpse([image], [patch_size, patch_size], [keypoint], normalized=False, centered=False)
+
+def get_landmarks(filename, subsampling_factor=1):
+    landmarks = []
+    with open(filename, newline='') as csvfile:
+            reader = csv.reader(csvfile)
+            header = next(reader)
+            for row in reader:
+                landmarks.append([float(row[1]) / subsampling_factor,float(row[2]) / subsampling_factor])
+            landmarks = np.array(landmarks)
+    return landmarks
+
+def main(argv):
+    parser = argparse.ArgumentParser(description='Compute codes and reconstructions for image.')
+    parser.add_argument('export_dir',type=str,help='Path to saved model.')
+    parser.add_argument('mean', type=str, help='Path to npy file holding mean for normalization.')
+    parser.add_argument('variance', type=str, help='Path to npy file holding variance for normalization.')
+    parser.add_argument('source_filename', type=str,help='Image file from which to extract patch.')
+    parser.add_argument('source_image_size', type=int, nargs=2, help='Size of the input image, HW.')
+    parser.add_argument('source_landmarks', type=str,help='CSV file from which to extract the landmarks for source image.')
+    parser.add_argument('target_filename', type=str,help='Image file for which to create the heatmap.')
+    parser.add_argument('target_image_size', type=int, nargs=2, help='Size of the input image for which to create heatmap, HW.')
+    parser.add_argument('target_landmarks', type=str,help='CSV file from which to extract the landmarks for target image.')
+    parser.add_argument('patch_size', type=int, help='Size of image patch.')
+    parser.add_argument('--method', dest='method', type=str, help='Method to use to measure similarity, one of KLD, SKLD, BD, HD, SQHD.')
+    parser.add_argument('--stain_code_size', type=int, dest='stain_code_size', default=0,
+        help='Optional: Size of the stain code to use, which is skipped for similarity estimation')
+    parser.add_argument('--rotate', type=float, dest='angle', default=0,
+        help='Optional: rotation angle to rotate target image')
+    parser.add_argument('--subsampling_factor', type=int, dest='subsampling_factor', default=1, help='Factor to subsample source and target image.')
+    args = parser.parse_args()
+
+    mean = np.load(args.mean)
+    variance = np.load(args.variance)
+    stddev = [np.math.sqrt(x) for x in variance]
+
+    def denormalize(image):
+        channels = [np.expand_dims(image[:,:,channel] * stddev[channel] + mean[channel],-1) for channel in range(3)]
+        denormalized_image = ctfi.rescale(np.concatenate(channels, 2), 0.0, 1.0)
+        return denormalized_image
+
+    def normalize(image, name=None, num_channels=3):
+        channels = [tf.expand_dims((image[:,:,:,channel] - mean[channel]) / stddev[channel],-1) for channel in range(num_channels)]
+        return tf.concat(channels, num_channels)
+
+    latest_checkpoint = tf.train.latest_checkpoint(args.export_dir)   
+    saver = tf.train.import_meta_graph(latest_checkpoint + '.meta', import_scope='imported')
+
+    # Load image and extract patch from it and create distribution.
+    source_image = ctfi.subsample(ctfi.load(args.source_filename,height=args.source_image_size[0], width=args.source_image_size[1]),args.subsampling_factor)
+    args.source_image_size = list(map(lambda x: int(x / args.subsampling_factor), args.source_image_size))
+
+    #Load image for which to create the heatmap
+    target_image = ctfi.subsample(ctfi.load(args.target_filename,height=args.target_image_size[0], width=args.target_image_size[1]),args.subsampling_factor)
+    args.target_image_size = list(map(lambda x: int(x / args.subsampling_factor), args.target_image_size))
+
+    source_landmarks = get_landmarks(args.source_landmarks, args.subsampling_factor)
+    source_patches = tf.map_fn(lambda x: get_patch_at(x, source_image, args.patch_size), source_landmarks)
+
+    target_landmarks = get_landmarks(args.target_landmarks, args.subsampling_factor)
+    target_patches = tf.map_fn(lambda x: get_patch_at(x, target_image, args.patch_size), target_landmarks)
+
+
+    with tf.Session().as_default() as sess:
+        saver.restore(sess)
+
+
+
+        fig, ax = plt.subplots(1,2)
+
+        ax[0].imshow(sess.run(source_image))
+        ax[1].imshow(sess.run(target_image))
+
+        plt.show()
+
+        sess.close()
+        
+    return 0
+
+if __name__ == "__main__":
+    tf.logging.set_verbosity(tf.logging.INFO)
+    tf.app.run(main, argv=sys.argv[1:])
