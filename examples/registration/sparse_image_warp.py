@@ -17,6 +17,11 @@ mean = np.load("mean.npy")
 variance = np.load("variance.npy")
 stddev = [np.math.sqrt(x) for x in variance]
 
+def plot_grid(ax, gridx,gridy, **kwargs):
+    for i in range(gridx.shape[0]):
+        ax.plot(gridx[i,:], gridy[i,:], **kwargs)
+    for i in range(gridx.shape[1]):
+        ax.plot(gridx[:,i], gridy[:,i], **kwargs)
 
 def normalize(image):
     channels = [tf.expand_dims((image[:,:,:,channel] - mean[channel]) / stddev[channel],-1) for channel in range(3)]
@@ -42,7 +47,7 @@ def main(argv):
 
     step = tf.Variable(tf.zeros([], dtype=tf.float32))    
 
-    X, Y = np.mgrid[0:512:16j, 0:512:16j]
+    X, Y = np.mgrid[0:512:8j, 0:512:8j]
     positions = np.transpose(np.vstack([X.ravel(), Y.ravel()]))
     positions = tf.expand_dims(tf.convert_to_tensor(positions, dtype=tf.float32),0)
 
@@ -63,7 +68,7 @@ def main(argv):
     image_patches = normalize(ctfi.extract_patches(image[0], 32, strides=[1,16,16,1]))
     warped_patches = normalize(ctfi.extract_patches(warped_image[0], 32, strides=[1,16,16,1]))
 
-    learning_rate = 0.1
+    learning_rate = 0.05
 
     latest_checkpoint = tf.train.latest_checkpoint(args.export_dir)
     saver = tf.train.import_meta_graph(latest_checkpoint + '.meta', import_scope='imported')
@@ -77,12 +82,15 @@ def main(argv):
         N_target = tf.contrib.distributions.MultivariateNormalTriL(loc=target_mean[:,6:], scale_tril=target_cov[:,6:,6:])
         N_mov = tf.contrib.distributions.MultivariateNormalTriL(loc=moving_mean[:,6:], scale_tril=moving_cov[:,6:,6:])
 
-        h_squared = ctf.multivariate_squared_hellinger_distance(N_target, N_mov)
-        hellinger = tf.sqrt(h_squared)     
-        loss = tf.reduce_sum(hellinger)
+        #h_squared = ctf.multivariate_squared_hellinger_distance(N_target, N_mov)
+        #hellinger = tf.sqrt(h_squared)     
+        
+        loss = tf.reduce_sum(N_target.kl_divergence(N_mov) + N_mov.kl_divergence(N_target))
+
+        scipy_options = {'maxiter':10000, 'disp':True, 'iprint': 10}
+        scipy_optimizer = tf.contrib.opt.ScipyOptimizerInterface(loss, var_list=[source_control_point_locations], method='SLSQP', options=scipy_options)
 
         optimizer =  tf.train.GradientDescentOptimizer(learning_rate=learning_rate)
-
         compute_gradients_source = optimizer.compute_gradients(loss,var_list=[source_control_point_locations])
         apply_gradients_source = optimizer.apply_gradients(compute_gradients_source, global_step=step)
 
@@ -151,14 +159,18 @@ def main(argv):
         fig.canvas.flush_events()
         plt.show()
 
+        #gradients = (tf.zeros_like(source_control_point_locations),tf.zeros_like(source_control_point_locations))
+
         iterations = 100000
         while step.value().eval(session=sess) < iterations:
             step_val = int(step.value().eval(session=sess))
 
+            #scipy_optimizer.minimize(sess)
+
             gradients = sess.run(compute_gradients_source)
             sess.run(apply_gradients_source)
 
-            if step_val % 1000 == 0 or step_val == iterations - 1 :
+            if step_val % 100 == 0 or step_val == iterations - 1 :
                 loss_val = loss.eval(session=sess)
                 grad_mean_source = np.mean(gradients[0][0])
                 
@@ -198,6 +210,8 @@ def main(argv):
                     source_gradients[:,1],
                     source_gradients,
                     units='xy',angles='xy', scale_units='xy', scale=1)
+
+                #grid_plot = plot_grid(ax[0,1],source_points[:,0],source_points[:,1])
 
                 #plot_dest_grad.remove()
                 #plot_dest_grad = ax[0,2].quiver(

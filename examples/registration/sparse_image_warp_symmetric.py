@@ -35,17 +35,23 @@ def main(argv):
 
     args = parser.parse_args()
 
-    filename_target = os.path.join(git_root,'data','images','HE_level_1_cropped_512x512.png')
-    image_target = tf.expand_dims(ctfi.load(filename_target, width=512, height=512, channels=3),0)
-    #image_target = tf.contrib.image.rotate(image_target,0.05*math.pi)
+    width = 512
+    height = 512
+    channels = 3
 
-    filename_moving = os.path.join(git_root,'data','images','CD3_level_1_cropped_512x512.png')
-    image_moving = tf.expand_dims(ctfi.load(filename_moving, width=512, height=512, channels=3),0)
-    #image_moving = tf.contrib.image.rotate(image_moving,-0.05*math.pi)
+    filename_target = os.path.join(git_root,'data','images','HE_level_1_cropped_512x512.png')
+    image_target = tf.expand_dims(ctfi.load(filename_target, width=width, height=height, channels=channels),0)
+    image_target = tf.reshape(image_target, shape=[1, 512, 512, 3])
+    image_target = tf.contrib.image.rotate(image_target,0.05*math.pi)
+
+    filename_moving = os.path.join(git_root,'data','images','HE_level_1_cropped_512x512.png')
+    image_moving = tf.expand_dims(ctfi.load(filename_moving, width=width, height=height, channels=channels),0)
+    image_moving = tf.reshape(image_moving, shape=[1, 512, 512, 3])
+    image_moving = tf.contrib.image.rotate(image_moving,-0.05*math.pi)
 
     step = tf.Variable(tf.zeros([], dtype=tf.float32))    
 
-    X, Y = np.mgrid[0:512:8j, 0:512:8j]
+    X, Y = np.mgrid[0:width:8j, 0:height:8j]
     positions = np.transpose(np.vstack([X.ravel(), Y.ravel()]))
     positions = tf.expand_dims(tf.convert_to_tensor(positions, dtype=tf.float32),0)
 
@@ -76,14 +82,14 @@ def main(argv):
     )
 
 
-    warped_target_patches = normalize(ctfi.extract_patches(warped_target[0], 32, strides=[1,16,16,1]))
-    warped_moving_patches = normalize(ctfi.extract_patches(warped_moving[0], 32, strides=[1,16,16,1]))
+    warped_target_patches = normalize(ctfi.extract_patches(warped_target[0], 32, strides=[1,32,32,1]))
+    warped_moving_patches = normalize(ctfi.extract_patches(warped_moving[0], 32, strides=[1,32,32,1]))
 
     #warped_target_patches = normalize(tf.image.extract_glimpse(tf.tile(warped_target,[64,1,1,1]),[32,32],target_source_control_point_locations[0], centered=False))
     #warped_moving_patches = normalize(tf.image.extract_glimpse(tf.tile(warped_moving,[64,1,1,1]),[32,32],moving_source_control_point_locations[0], centered=False))
 
     #learning_rate = 0.05 # h_squared
-    learning_rate = 0.01 # sym_kl
+    learning_rate = 0.05 # sym_kl
     #learning_rate = 0.05 # battacharyya
     #learning_rate = 1 #hellinger
     #learning_rate = 0.005 # ssd loss
@@ -118,11 +124,12 @@ def main(argv):
 
         #target_mean = warped_target_graph[0]#[:,6:]
         #target_cov = warped_target_graph[1]#[:,6:,6:]
-        N_target = tf.contrib.distributions.MultivariateNormalTriL(loc=target_mean[:,6:], scale_tril=target_cov[:,6:,6:])
+        stain_code_size = 8
+        N_target = tf.contrib.distributions.MultivariateNormalTriL(loc=target_mean[:,stain_code_size:], scale_tril=target_cov[:,stain_code_size:,stain_code_size:])
 
         #moving_mean = warped_moving_graph[0]#[:,6:]
         #moving_cov = warped_moving_graph[1]#[:,6:,6:]
-        N_mov = tf.contrib.distributions.MultivariateNormalTriL(loc=moving_mean[:,6:], scale_tril=moving_cov[:,6:,6:])
+        N_mov = tf.contrib.distributions.MultivariateNormalTriL(loc=moving_mean[:,stain_code_size:], scale_tril=moving_cov[:,stain_code_size:,stain_code_size:])
 
         sym_kl_div = N_target.kl_divergence(N_mov) + N_mov.kl_divergence(N_target)        
         
@@ -217,7 +224,7 @@ def main(argv):
         plt.show()
 
         iterations = 5000
-        print_iterations = 100
+        print_iterations = 1
         accumulated_gradients = np.zeros_like(sess.run(compute_gradients))
 
         while step.value().eval(session=sess) < iterations:
