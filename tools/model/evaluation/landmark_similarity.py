@@ -65,6 +65,10 @@ def main(argv):
     latest_checkpoint = tf.train.latest_checkpoint(args.export_dir)   
     saver = tf.train.import_meta_graph(latest_checkpoint + '.meta', import_scope='imported')
 
+    config = tf.ConfigProto()
+    config.allow_soft_placement=True
+    config.log_device_placement=True
+
     # Load image and extract patch from it and create distribution.
     source_image = ctfi.subsample(ctfi.load(args.source_filename,height=args.source_image_size[0], width=args.source_image_size[1]),args.subsampling_factor)
     args.source_image_size = list(map(lambda x: int(x / args.subsampling_factor), args.source_image_size))
@@ -80,7 +84,7 @@ def main(argv):
     target_patches = tf.cast(tf.squeeze(tf.map_fn(lambda x: get_patch_at(x, target_image, args.patch_size), target_landmarks)),tf.float32)
 
 
-    with tf.Session().as_default() as sess:
+    with tf.Session(config=config).as_default() as sess:
         saver.restore(sess, latest_checkpoint)
 
         source_patches_cov, source_patches_mean = tf.contrib.graph_editor.graph_replace([sess.graph.get_tensor_by_name('imported/z_log_sigma_sq/BiasAdd:0'),sess.graph.get_tensor_by_name('imported/z_mean/BiasAdd:0')] ,{ sess.graph.get_tensor_by_name('imported/patch:0'): normalize(source_patches) })
