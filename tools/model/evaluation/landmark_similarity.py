@@ -25,8 +25,8 @@ def get_landmarks(filename, subsampling_factor=1):
             reader = csv.reader(csvfile)
             header = next(reader)
             for row in reader:
-                landmarks.append([float(row[1]) / subsampling_factor,float(row[2]) / subsampling_factor])
-            landmarks = np.array(landmarks)
+                landmarks.append([float(row[2]) / subsampling_factor,float(row[1]) / subsampling_factor])
+            landmarks = np.array(landmarks,dtype=np.float32)
     return landmarks
 
 def main(argv):
@@ -74,23 +74,28 @@ def main(argv):
     args.target_image_size = list(map(lambda x: int(x / args.subsampling_factor), args.target_image_size))
 
     source_landmarks = get_landmarks(args.source_landmarks, args.subsampling_factor)
-    source_patches = tf.map_fn(lambda x: get_patch_at(x, source_image, args.patch_size), source_landmarks)
+    source_patches = tf.cast(tf.squeeze(tf.map_fn(lambda x: get_patch_at(x, source_image, args.patch_size), source_landmarks)),tf.float32)
 
     target_landmarks = get_landmarks(args.target_landmarks, args.subsampling_factor)
-    target_patches = tf.map_fn(lambda x: get_patch_at(x, target_image, args.patch_size), target_landmarks)
+    target_patches = tf.cast(tf.squeeze(tf.map_fn(lambda x: get_patch_at(x, target_image, args.patch_size), target_landmarks)),tf.float32)
 
 
     with tf.Session().as_default() as sess:
-        saver.restore(sess)
+        saver.restore(sess, latest_checkpoint)
 
+        source_patches_cov, source_patches_mean = tf.contrib.graph_editor.graph_replace([sess.graph.get_tensor_by_name('imported/z_log_sigma_sq/BiasAdd:0'),sess.graph.get_tensor_by_name('imported/z_mean/BiasAdd:0')] ,{ sess.graph.get_tensor_by_name('imported/patch:0'): normalize(source_patches) })
+        source_patches_distribution = tf.contrib.distributions.MultivariateNormalDiag(source_patches_mean[:,args.stain_code_size:], tf.exp(source_patches_cov[:,args.stain_code_size:]))
+        
+        target_patches_cov, target_patches_mean = tf.contrib.graph_editor.graph_replace([sess.graph.get_tensor_by_name('imported/z_log_sigma_sq/BiasAdd:0'),sess.graph.get_tensor_by_name('imported/z_mean/BiasAdd:0')] ,{ sess.graph.get_tensor_by_name('imported/patch:0'): normalize(target_patches) })
+        target_patches_distribution = tf.contrib.distributions.MultivariateNormalDiag(target_patches_mean[:,args.stain_code_size:], tf.exp(target_patches_cov[:,args.stain_code_size:]))
 
+        similarities = source_patches_distribution.kl_divergence(target_patches_distribution) + target_patches_distribution.kl_divergence(source_patches_distribution)
+        print(sess.run(similarities))
 
-        fig, ax = plt.subplots(1,2)
-
-        ax[0].imshow(sess.run(source_image))
-        ax[1].imshow(sess.run(target_image))
-
-        plt.show()
+        #fig, ax = plt.subplots(1,2)
+        #ax[0].imshow(sess.run(source_image))
+        #ax[1].imshow(sess.run(target_image))
+        #plt.show()
 
         sess.close()
         
