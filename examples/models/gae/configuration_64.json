@@ -37,11 +37,11 @@
             }
         },
         "parameters": {
-            "beta": 6,
-            "alpha": 2,
+            "beta": 8,
+            "alpha": 4,
             "delta": 4,
-            "stain_code_size":8,
-            "latent_space_size":62
+            "stain_code_size":64,
+            "latent_space_size":128
         },
         "components": [      
             {
@@ -173,8 +173,8 @@
                 "input":"encoded_patch",
                 "layers": [
                     {
-                        "type":"sampler_v2",
-                        "dims":62,
+                        "type":"sampler",
+                        "dims":128,
                         "name":"z"
                     }
                 ],
@@ -190,7 +190,7 @@
                     {
                         "type":"slice",
                         "begin":[0],
-                        "size":[8],
+                        "size":[64],
                         "name:":"z_stain"
                     },
                     {
@@ -211,8 +211,8 @@
                     },
                     {
                         "type":"slice",
-                        "begin":[8],
-                        "size":[54],
+                        "begin":[64],
+                        "size":[64],
                         "name:":"z_structure"
                     },
                     {
@@ -230,7 +230,7 @@
                 "layers": [
                     {
                         "type":"reshape",
-                        "shape":[1,1,62]
+                        "shape":[1,1,128]
                     },                    
                     {
                         "type":"conv",
@@ -377,7 +377,7 @@
         "embeddings": {
             "width": 64,
             "height": 64,
-            "stain_code_size": 8
+            "stain_code_size": 64
         }
     }
 }
