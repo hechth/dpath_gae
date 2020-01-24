@@ -136,6 +136,9 @@ def main(argv):
         channels = [tf.expand_dims((image[:,:,:,channel] - mean[channel]) / stddev[channel],-1) for channel in range(3)]
         return tf.concat(channels, 3, name=name)
 
+    def get_patch_at(keypoint, image):
+        return tf.image.extract_glimpse(image,[args.patch_size, args.patch_size], [keypoint], normalized=False, centered=False)
+
     latest_checkpoint = tf.train.latest_checkpoint(args.export_dir)   
     saver = tf.train.import_meta_graph(latest_checkpoint + '.meta', import_scope='imported')
 
@@ -152,6 +155,14 @@ def main(argv):
         source_keypoints, source_descriptors_cv = orb.detectAndCompute(im_source, None)
         target_keypoints, target_descriptors_cv = orb.detectAndCompute(im_target, None)
 
+        #for keypoint in source_keypoints:
+        #    keypoint.pt = (keypoint.pt[1], keypoint.pt[0])
+        #for keypoint in target_keypoints:
+        #    keypoint.pt = (keypoint.pt[1], keypoint.pt[0])
+
+        patch_kp_0 = get_patch_at(source_keypoints[0].pt, source_image)
+        #plt.imshow(sess.run(patch_kp_0)[0])
+        #plt.show()
         #source_keypoints.sort(key = lambda x: x.response, reverse=False)
         #target_keypoints.sort(key = lambda x: x.response, reverse=False)
 
@@ -183,8 +194,7 @@ def main(argv):
         source_descriptors_eval = []
         target_descriptors_eval = []
 
-        def get_patch_at(keypoint, image):
-            return tf.image.extract_glimpse(image,[args.patch_size, args.patch_size], [keypoint], normalized=False, centered=False)
+
 
 
         #source_patches = normalize(tf.concat(list(map(lambda x: get_patch_at(x, source_image), source_keypoints)),0))
@@ -288,8 +298,8 @@ def main(argv):
             #target_patches = sess.run(normalize(tf.concat(list(map(lambda x: get_patch_at(x, target_image), target_keypoints[start:end])),0)))
 
             #source_coords = tf.convert_to_tensor(np.array([list(key_point.pt) for key_point in source_keypoints]))
-            source_coords_np = np.array([list(key_point.pt) for key_point in source_keypoints[start:end]])
-            target_coords_np = np.array([list(key_point.pt) for key_point in target_keypoints[start:end]])
+            source_coords_np = np.array([[key_point.pt[1],key_point.pt[0]] for key_point in source_keypoints[start:end]])
+            target_coords_np = np.array([[key_point.pt[1],key_point.pt[0]] for key_point in target_keypoints[start:end]])
 
             source_descriptors_eval.extend(sess.run(descriptors, feed_dict={patches_placeholder : np.squeeze(sess.run(source_patches, feed_dict={coords: source_coords_np}))}))
             target_descriptors_eval.extend(sess.run(descriptors, feed_dict={patches_placeholder : np.squeeze(sess.run(target_patches, feed_dict={coords: target_coords_np}))}))
