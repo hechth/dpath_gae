@@ -52,6 +52,8 @@ def main(argv):
     saver = tf.train.import_meta_graph(latest_checkpoint + '.meta', import_scope='imported')
 
     config = tf.ConfigProto()
+    run_options = tf.RunOptions(trace_level=tf.RunOptions.FULL_TRACE)
+    run_options.report_tensor_allocations_upon_oom = True
     #config.gpu_options.allow_growth = True
 
     # Load image and extract patch from it and create distribution.
@@ -105,7 +107,8 @@ def main(argv):
         saver.restore(sess, latest_checkpoint)
 
         for source, target in patches:
-            heatmap.extend(sess.run(similarity, feed_dict={source_patches_placeholder : sess.run(source), target_patches_placeholder: sess.run(target)}))
+            feed_dict={source_patches_placeholder : sess.run(source), target_patches_placeholder: sess.run(target)}
+            heatmap.extend(sess.run(similarity,feed_dict=feed_dict, options=run_options))
 
         heatmap_sad = sess.run(tf.reduce_mean(tf.squared_difference(source_image, target_image), axis=2))
 
