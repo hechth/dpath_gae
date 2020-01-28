@@ -17,6 +17,9 @@ import packages.Utility as cutil
 max_buffer_size_in_byte = 64*64*4*3*1000
 max_patch_buffer_size = 2477273088
 
+def get_patch_at(keypoint, images, patch_size):
+    return tf.image.extract_glimpse(images, [patch_size, patch_size], [keypoint], normalized=False, centered=False)
+
 def main(argv):
     parser = argparse.ArgumentParser(description='Compute codes and reconstructions for image.')
     parser.add_argument('export_dir',type=str,help='Path to saved model.')
@@ -66,8 +69,8 @@ def main(argv):
 
     heatmap_size = list(map(lambda v: max(v[0],v[1]), zip(args.source_image_size, args.target_image_size)))
 
-    source_image = tf.image.resize_image_with_crop_or_pad(source_image, heatmap_size[0], heatmap_size[1])
-    target_image = tf.image.resize_image_with_crop_or_pad(target_image, heatmap_size[0], heatmap_size[1])
+    source_image = tf.expand_dims(tf.image.resize_image_with_crop_or_pad(source_image, heatmap_size[0], heatmap_size[1]),0)
+    target_image = tf.expand_dims(tf.image.resize_image_with_crop_or_pad(target_image, heatmap_size[0], heatmap_size[1]),0)
 
     num_patches = np.prod(heatmap_size,axis=0)
 
@@ -79,19 +82,28 @@ def main(argv):
 
     split_size = int(num_patches / num_splits)
 
-    source_patches_placeholder = tf.placeholder(tf.float32, shape=[num_patches / num_splits, args.patch_size, args.patch_size, 3])
-    target_patches_placeholder = tf.placeholder(tf.float32, shape=[num_patches / num_splits, args.patch_size, args.patch_size, 3])
+    X, Y = np.meshgrid(range(heatmap_size[1]), range(heatmap_size[0]))
+
+    coords = np.concatenate([np.expand_dims(Y.flatten(),axis=1),np.expand_dims(X.flatten(),axis=1)],axis=1)
+
+    #source_patches_placeholder = tf.placeholder(tf.float32, shape=[num_patches / num_splits, args.patch_size, args.patch_size, 3])
+    #target_patches_placeholder = tf.placeholder(tf.float32, shape=[num_patches / num_splits, args.patch_size, args.patch_size, 3])
       
-    all_source_patches = ctfi.extract_patches(source_image, args.patch_size, strides=[1,1,1,1], padding='SAME')
-    all_target_patches = ctfi.extract_patches(target_image, args.patch_size, strides=[1,1,1,1], padding='SAME')
+    #all_source_patches = ctfi.extract_patches(source_image, args.patch_size, strides=[1,1,1,1], padding='SAME')
+    #all_target_patches = ctfi.extract_patches(target_image, args.patch_size, strides=[1,1,1,1], padding='SAME')
 
-    source_patches = tf.split(all_source_patches, num_splits)
-    target_patches = tf.split(all_target_patches, num_splits)
+    #source_patches = tf.split(all_source_patches, num_splits)
+    #target_patches = tf.split(all_target_patches, num_splits)
 
-    patches = zip(source_patches, target_patches)
+    #patches = zip(source_patches, target_patches)
+
+    coords_placeholder = tf.placeholder(tf.float32, shape=[split_size, 2])
+
+    source_patches_placeholder = tf.squeeze(tf.map_fn(lambda x: get_patch_at(x, source_image, args.patch_size), coords_placeholder, parallel_iterations=8, back_prop=False))
+    target_patches_placeholder = tf.squeeze(tf.map_fn(lambda x: get_patch_at(x, target_image, args.patch_size), coords_placeholder, parallel_iterations=8, back_prop=False))
 
 
-    heatmap = []
+    heatmap = np.ndarray(heatmap_size)
     
     with tf.Session(graph=tf.get_default_graph(), config=config).as_default() as sess:
         source_patches_cov, source_patches_mean = tf.contrib.graph_editor.graph_replace([sess.graph.get_tensor_by_name('imported/z_log_sigma_sq/BiasAdd:0'),sess.graph.get_tensor_by_name('imported/z_mean/BiasAdd:0')] ,{ sess.graph.get_tensor_by_name('imported/patch:0'): normalize(source_patches_placeholder) })
@@ -100,23 +112,30 @@ def main(argv):
         target_patches_cov, target_patches_mean = tf.contrib.graph_editor.graph_replace([sess.graph.get_tensor_by_name('imported/z_log_sigma_sq/BiasAdd:0'),sess.graph.get_tensor_by_name('imported/z_mean/BiasAdd:0')] ,{ sess.graph.get_tensor_by_name('imported/patch:0'): normalize(target_patches_placeholder) })
         target_patches_distribution = tf.contrib.distributions.MultivariateNormalDiag(target_patches_mean[:,args.stain_code_size:], tf.exp(target_patches_cov[:,args.stain_code_size:]))
 
-        similarity = source_patches_distribution.kl_divergence(target_patches_distribution) + target_patches_distribution.kl_divergence(source_patches_distribution)
-
+        #similarity = source_patches_distribution.kl_divergence(target_patches_distribution) + target_patches_distribution.kl_divergence(source_patches_distribution)
+        similarity = ctf.bhattacharyya_distance(source_patches_distribution, target_patches_distribution)
+        
         sess.run(tf.global_variables_initializer())
         sess.run(tf.local_variables_initializer())
         saver.restore(sess, latest_checkpoint)
 
-        for source, target in patches:
-            feed_dict={source_patches_placeholder : sess.run(source), target_patches_placeholder: sess.run(target)}
-            heatmap.extend(sess.run(similarity,feed_dict=feed_dict, options=run_options))
+        for i in range(num_splits):
+            start = i * split_size
+            end = start + split_size
+            batch_coords = coords[start:end,:]
+            feed_dict={ coords_placeholder : batch_coords }
+            similarity_values = sess.run(similarity,feed_dict=feed_dict, options=run_options)
+            for idx, val in zip(batch_coords, similarity_values):
+                heatmap[idx[0],idx[1]] = val
 
-        heatmap_sad = sess.run(tf.reduce_mean(tf.squared_difference(source_image, target_image), axis=2))
+        heatmap_sad = sess.run(tf.reduce_mean(tf.squared_difference(source_image, target_image), axis=3))[0]
 
-        sim_heatmap = np.reshape(heatmap, heatmap_size)
-        
+        #sim_heatmap = np.reshape(heatmap, heatmap_size, order='C')
+        sim_heatmap = heatmap
+
         fig_images, ax_images = plt.subplots(1,2)
-        ax_images[0].imshow(sess.run(source_image))
-        ax_images[1].imshow(sess.run(target_image))
+        ax_images[0].imshow(sess.run(source_image)[0])
+        ax_images[1].imshow(sess.run(target_image)[0])
 
         fig_similarities, ax_similarities = plt.subplots(1,2)
         heatmap_skld_plot = ax_similarities[0].imshow(sim_heatmap, cmap='plasma')

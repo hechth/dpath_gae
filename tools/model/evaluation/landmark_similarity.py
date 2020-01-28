@@ -16,8 +16,8 @@ import packages.Utility as cutil
 max_buffer_size_in_byte = 64*64*4*3*1000
 max_patch_buffer_size = 2477273088
 
-def get_patch_at(keypoint, image, patch_size):
-    return tf.image.extract_glimpse([image], [patch_size, patch_size], [keypoint], normalized=False, centered=False)
+def get_patch_at(keypoint, images, patch_size):
+    return tf.image.extract_glimpse(images, [patch_size, patch_size], [keypoint], normalized=False, centered=False)
 
 def get_landmarks(filename, subsampling_factor=1):
     landmarks = []
@@ -25,7 +25,7 @@ def get_landmarks(filename, subsampling_factor=1):
             reader = csv.reader(csvfile)
             header = next(reader)
             for row in reader:
-                landmarks.append([float(row[2]) / subsampling_factor,float(row[1]) / subsampling_factor])
+                landmarks.append([float(row[2]) / subsampling_factor, float(row[1]) / subsampling_factor])
             landmarks = np.array(landmarks,dtype=np.float32)
     return landmarks
 
@@ -67,21 +67,21 @@ def main(argv):
 
     config = tf.ConfigProto()
     config.allow_soft_placement=True
-    config.log_device_placement=True
+    #config.log_device_placement=True
 
     # Load image and extract patch from it and create distribution.
-    source_image = ctfi.subsample(ctfi.load(args.source_filename,height=args.source_image_size[0], width=args.source_image_size[1]),args.subsampling_factor)
+    source_image = tf.expand_dims(ctfi.subsample(ctfi.load(args.source_filename,height=args.source_image_size[0], width=args.source_image_size[1]),args.subsampling_factor),0)
     args.source_image_size = list(map(lambda x: int(x / args.subsampling_factor), args.source_image_size))
 
     #Load image for which to create the heatmap
-    target_image = ctfi.subsample(ctfi.load(args.target_filename,height=args.target_image_size[0], width=args.target_image_size[1]),args.subsampling_factor)
+    target_image = tf.expand_dims(ctfi.subsample(ctfi.load(args.target_filename,height=args.target_image_size[0], width=args.target_image_size[1]),args.subsampling_factor),0)
     args.target_image_size = list(map(lambda x: int(x / args.subsampling_factor), args.target_image_size))
 
     source_landmarks = get_landmarks(args.source_landmarks, args.subsampling_factor)
-    source_patches = tf.cast(tf.squeeze(tf.map_fn(lambda x: get_patch_at(x, source_image, args.patch_size), source_landmarks)),tf.float32)
+    source_patches = tf.squeeze(tf.map_fn(lambda x: get_patch_at(x, source_image, args.patch_size), source_landmarks))
 
     target_landmarks = get_landmarks(args.target_landmarks, args.subsampling_factor)
-    target_patches = tf.cast(tf.squeeze(tf.map_fn(lambda x: get_patch_at(x, target_image, args.patch_size), target_landmarks)),tf.float32)
+    target_patches = tf.squeeze(tf.map_fn(lambda x: get_patch_at(x, target_image, args.patch_size), target_landmarks))
 
 
     with tf.Session(config=config).as_default() as sess:
@@ -93,13 +93,24 @@ def main(argv):
         target_patches_cov, target_patches_mean = tf.contrib.graph_editor.graph_replace([sess.graph.get_tensor_by_name('imported/z_log_sigma_sq/BiasAdd:0'),sess.graph.get_tensor_by_name('imported/z_mean/BiasAdd:0')] ,{ sess.graph.get_tensor_by_name('imported/patch:0'): normalize(target_patches) })
         target_patches_distribution = tf.contrib.distributions.MultivariateNormalDiag(target_patches_mean[:,args.stain_code_size:], tf.exp(target_patches_cov[:,args.stain_code_size:]))
 
-        similarities = source_patches_distribution.kl_divergence(target_patches_distribution) + target_patches_distribution.kl_divergence(source_patches_distribution)
-        print(sess.run(similarities))
+        #similarities = source_patches_distribution.kl_divergence(target_patches_distribution) + target_patches_distribution.kl_divergence(source_patches_distribution)
+        #similarities = ctf.multivariate_squared_hellinger_distance(source_patches_distribution, target_patches_distribution)
+        similarities = ctf.bhattacharyya_distance(source_patches_distribution, target_patches_distribution)
+        sim_vals = sess.run(similarities)
+        min_idx = np.argmin(sim_vals)
+        max_idx = np.argmax(sim_vals)
+        print(sim_vals)
+        print(min_idx, sim_vals[min_idx])
+        print(max_idx, sim_vals[max_idx])
 
-        #fig, ax = plt.subplots(1,2)
-        #ax[0].imshow(sess.run(source_image))
-        #ax[1].imshow(sess.run(target_image))
-        #plt.show()
+        fig, ax = plt.subplots(2,3)
+        ax[0,0].imshow(sess.run(source_image[0]))
+        ax[0,1].imshow(sess.run(source_patches)[min_idx])
+        ax[0,2].imshow(sess.run(source_patches)[max_idx])
+        ax[1,0].imshow(sess.run(target_image[0]))
+        ax[1,1].imshow(sess.run(target_patches)[min_idx])
+        ax[1,2].imshow(sess.run(target_patches)[max_idx])
+        plt.show()
 
         sess.close()
         
