@@ -112,8 +112,8 @@ def main(argv):
         target_patches_cov, target_patches_mean = tf.contrib.graph_editor.graph_replace([sess.graph.get_tensor_by_name('imported/z_log_sigma_sq/BiasAdd:0'),sess.graph.get_tensor_by_name('imported/z_mean/BiasAdd:0')] ,{ sess.graph.get_tensor_by_name('imported/patch:0'): normalize(target_patches_placeholder) })
         target_patches_distribution = tf.contrib.distributions.MultivariateNormalDiag(target_patches_mean[:,args.stain_code_size:], tf.exp(target_patches_cov[:,args.stain_code_size:]))
 
-        #similarity = source_patches_distribution.kl_divergence(target_patches_distribution) + target_patches_distribution.kl_divergence(source_patches_distribution)
-        similarity = ctf.bhattacharyya_distance(source_patches_distribution, target_patches_distribution)
+        similarity = source_patches_distribution.kl_divergence(target_patches_distribution) + target_patches_distribution.kl_divergence(source_patches_distribution)
+        #similarity = ctf.bhattacharyya_distance(source_patches_distribution, target_patches_distribution)
         
         sess.run(tf.global_variables_initializer())
         sess.run(tf.local_variables_initializer())
@@ -125,6 +125,7 @@ def main(argv):
             batch_coords = coords[start:end,:]
             feed_dict={ coords_placeholder : batch_coords }
             similarity_values = sess.run(similarity,feed_dict=feed_dict, options=run_options)
+            #heatmap.extend(similarity_values)
             for idx, val in zip(batch_coords, similarity_values):
                 heatmap[idx[0],idx[1]] = val
 
