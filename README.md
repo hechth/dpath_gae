@@ -9,6 +9,12 @@ It is targeted towards disentangled representation learning for digital patholog
 
 Please note that this project is under development and doesn't contain the main content as of today.
 Collaborations and contributions are welcome!
+
+If using this code in your work please cite the following publication
+
+[1] Hecht, H.; Sarhan, M.H.; Popovici, V. Disentangled Autoencoder for Cross-Stain Feature Extraction in Pathology Image Analysis. Appl. Sci. 2020, 10, 6427. https://doi.org/10.3390/app10186427
+
+
 ## Setup
 ### Python
 
